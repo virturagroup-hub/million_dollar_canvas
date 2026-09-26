@@ -24,6 +24,7 @@ export function render(
   view: View,
   strokes: Stroke[],
   draft?: { points: Point[]; color: string; width: number },
+  dimensions: { width: number; height: number } = RULES,
 ) {
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx)
@@ -42,10 +43,10 @@ export function render(
   ctx.translate(view.x, view.y);
   ctx.scale(view.zoom, view.zoom);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, RULES.width, RULES.height);
+  ctx.fillRect(0, 0, dimensions.width, dimensions.height);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, RULES.width, RULES.height);
+  ctx.rect(0, 0, dimensions.width, dimensions.height);
   ctx.clip();
   for (const stroke of strokes)
     paintPath(ctx, stroke.points, stroke.color, stroke.width);

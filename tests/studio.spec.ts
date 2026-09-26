@@ -1,15 +1,20 @@
+import { mockArtwork } from "./fixtures/artwork";
 import { expect, test, type Page } from "@playwright/test";
 async function arm(page: Page) {
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page
     .getByRole("button", { name: "Lock View & Prepare Stroke" })
     .click();
-  await expect(page.locator("canvas")).toHaveAttribute("data-phase", "armed", {
+  await expect(
+    page.getByLabel("Drawing canvas", { exact: true }),
+  ).toHaveAttribute("data-phase", "armed", {
     timeout: 6000,
   });
 }
 async function line(page: Page) {
-  const box = (await page.locator("canvas").boundingBox())!;
+  const box = (await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(
@@ -19,7 +24,8 @@ async function line(page: Page) {
   );
   await page.mouse.up();
 }
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, context }) => {
+  await mockArtwork(context);
   await page.goto("/");
 });
 test("duration limit and actual pointer capture loss discard unfinished strokes", async ({
@@ -31,7 +37,9 @@ test("duration limit and actual pointer capture loss discard unfinished strokes"
     .getByRole("button", { name: "Lock View & Prepare Stroke" })
     .click();
   await page.clock.runFor(3100);
-  const box = (await page.locator("canvas").boundingBox())!;
+  const box = (await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.clock.runFor(15100);
@@ -39,7 +47,7 @@ test("duration limit and actual pointer capture loss discard unfinished strokes"
   await expect(page.locator(".error[role=alert]")).toContainText(
     "15-second limit",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 local strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page
     .getByRole("button", { name: "Lock View & Prepare Stroke" })
@@ -49,16 +57,16 @@ test("duration limit and actual pointer capture loss discard unfinished strokes"
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2);
   await page
-    .locator("canvas")
+    .getByLabel("Drawing canvas", { exact: true })
     .evaluate((canvas: HTMLCanvasElement) => canvas.releasePointerCapture(1));
   await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2);
   await page.mouse.up();
   await expect(page.locator(".error[role=alert]")).toContainText(
     "capture lost",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 local strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
 });
-test("one deliberate gesture, locked navigation, color sampling, and reload reset", async ({
+test("one deliberate gesture, locked navigation, color sampling, and persistent reload", async ({
   page,
 }) => {
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
@@ -75,26 +83,30 @@ test("one deliberate gesture, locked navigation, color sampling, and reload rese
     page.getByRole("button", { name: "Zoom in", exact: true }),
   ).toBeDisabled();
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 local strokes");
-  await expect(page.locator("canvas")).toHaveAttribute("data-phase", "armed", {
+  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(
+    page.getByLabel("Drawing canvas", { exact: true }),
+  ).toHaveAttribute("data-phase", "armed", {
     timeout: 6000,
   });
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 local stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 local stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page.getByLabel("Use #AB1234").click();
   await page.getByRole("button", { name: "Reset view" }).click();
   await page.getByRole("button", { name: "Pick Color From Canvas" }).click();
-  const box = (await page.locator("canvas").boundingBox())!;
+  const box = (await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .boundingBox())!;
   // Reset restores the original center without changing stroke geometry.
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page.getByLabel("Stroke color", { exact: true })).toHaveValue(
     "#AB1234",
   );
   await page.reload();
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 local strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
 });
 test("cancellation, invalid color, and lost pointer never save a stroke", async ({
   page,
@@ -110,17 +122,21 @@ test("cancellation, invalid color, and lost pointer never save a stroke", async 
   await page.getByRole("button", { name: "Cancel stroke" }).click();
   await page.waitForTimeout(3200);
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 local strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
   await arm(page);
-  const box = (await page.locator("canvas").boundingBox())!;
+  const box = (await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.locator("canvas").dispatchEvent("pointercancel", { pointerId: 1 });
+  await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .dispatchEvent("pointercancel", { pointerId: 1 });
   await page.mouse.up();
   await expect(page.locator(".error[role=alert]")).toContainText(
     "No stroke was saved",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 local strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
 });
 test("artwork stays aligned after zoom, pan, resize and high-DPI redraw", async ({
   page,
@@ -131,24 +147,26 @@ test("artwork stays aligned after zoom, pan, resize and high-DPI redraw", async 
   await page.setViewportSize({ width: 1000, height: 850 });
   await page.getByRole("button", { name: "Reset view" }).click();
   const readPixel = () =>
-    page.locator("canvas").evaluate((node: HTMLCanvasElement) => {
-      const rect = node.getBoundingClientRect();
-      const pixel = node
-        .getContext("2d")!
-        .getImageData(
-          Math.round(node.width / 2),
-          Math.round(node.height / 2),
-          1,
-          1,
-        ).data;
-      return {
-        ratio: node.width / rect.width,
-        rgb: Array.from(pixel.slice(0, 3)),
-      };
-    });
+    page
+      .getByLabel("Drawing canvas", { exact: true })
+      .evaluate((node: HTMLCanvasElement) => {
+        const rect = node.getBoundingClientRect();
+        const pixel = node
+          .getContext("2d")!
+          .getImageData(
+            Math.round(node.width / 2),
+            Math.round(node.height / 2),
+            1,
+            1,
+          ).data;
+        return {
+          ratio: node.width / rect.width,
+          rgb: Array.from(pixel.slice(0, 3)),
+        };
+      });
   await expect.poll(async () => (await readPixel()).rgb).toEqual([35, 92, 75]);
   expect((await readPixel()).ratio).toBeCloseTo(2);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 local stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
 });
 test("mobile controls fit and a touch gesture saves one stroke", async ({
   browser,
@@ -158,13 +176,18 @@ test("mobile controls fit and a touch gesture saves one stroke", async ({
     isMobile: true,
     hasTouch: true,
   });
+  await mockArtwork(context);
   const page = await context.newPage();
   await page.goto("/");
   await arm(page);
-  await page.locator("canvas").scrollIntoViewIfNeeded();
-  const box = (await page.locator("canvas").boundingBox())!;
+  await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .scrollIntoViewIfNeeded();
+  const box = (await page
+    .getByLabel("Drawing canvas", { exact: true })
+    .boundingBox())!;
   await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 local stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

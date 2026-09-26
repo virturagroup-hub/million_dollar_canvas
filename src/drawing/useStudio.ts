@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   RULES,
-  bounds,
   distance,
   inBounds,
   navigable,
@@ -18,6 +17,8 @@ import {
   type View,
 } from "@/drawing/model";
 import { render } from "@/drawing/renderer";
+import { sampleColor } from "./sampling";
+import type { Candidate } from "@/domain/canvas";
 
 type Gesture =
   | { kind: "pan"; pointer: number; last: Point }
@@ -29,7 +30,15 @@ type Gesture =
       color: string;
       width: number;
     };
-export function useStudio() {
+export function useStudio({
+  strokes,
+  dimensions,
+  persist,
+}: {
+  strokes: Stroke[];
+  dimensions: { width: number; height: number };
+  persist: (candidate: Candidate) => Promise<Stroke>;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const phaseRef = useRef<Phase>("idle");
   const [phase, setPhase] = useState<Phase>("idle");
@@ -37,7 +46,6 @@ export function useStudio() {
   const [color, setColor] = useState("#235C4B");
   const [width, setWidth] = useState<number>(6);
   const [recent, setRecent] = useState<string[]>([]);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
   const strokesRef = useRef<Stroke[]>([]);
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 0.5 });
   const viewRef = useRef(view);
@@ -62,11 +70,12 @@ export function useStudio() {
         viewRef.current,
         strokesRef.current,
         g?.kind === "draw" ? g : undefined,
+        dimensions,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Canvas rendering failed.");
     }
-  }, []);
+  }, [dimensions]);
   const reset = useCallback(() => {
     const r = canvas.current?.getBoundingClientRect();
     if (!r) return;
@@ -76,10 +85,10 @@ export function useStudio() {
     );
     updateView({
       zoom,
-      x: r.width / 2 - (RULES.width / 2) * zoom,
-      y: r.height / 2 - (RULES.height / 2) * zoom,
+      x: r.width / 2 - (dimensions.width / 2) * zoom,
+      y: r.height / 2 - (dimensions.height / 2) * zoom,
     });
-  }, [updateView]);
+  }, [updateView, dimensions]);
   const release = useCallback(() => {
     const g = gesture.current;
     gesture.current = null;
@@ -108,6 +117,7 @@ export function useStudio() {
     return () => observer.disconnect();
   }, [redraw, reset]);
   useEffect(() => {
+    strokesRef.current = strokes;
     const frame = requestAnimationFrame(redraw);
     return () => cancelAnimationFrame(frame);
   }, [view, strokes, size, redraw]);
@@ -171,30 +181,24 @@ export function useStudio() {
     const p = local(e);
     const world = toWorld(p, viewRef.current);
     if (phaseRef.current === "sampling") {
-      if (!inBounds(world)) {
+      if (!inBounds(world, dimensions)) {
         setError("Pick a color inside the white artwork.");
         return;
       }
       try {
-        const node = e.currentTarget;
-        const r = node.getBoundingClientRect();
-        const pixel = node
-          .getContext("2d")
-          ?.getImageData(
-            Math.min(node.width - 1, Math.floor((p.x * node.width) / r.width)),
-            Math.min(
-              node.height - 1,
-              Math.floor((p.y * node.height) / r.height),
-            ),
-            1,
-            1,
-          ).data;
-        if (!pixel) throw new Error("Canvas color sampling is unavailable.");
-        chooseColor(
-          "#" +
-            Array.from(pixel.slice(0, 3))
-              .map((n) => n.toString(16).padStart(2, "0"))
-              .join(""),
+        const sample = sampleColor(
+          e.currentTarget,
+          p,
+          viewRef.current,
+          dimensions,
+        );
+        if (!sample) return;
+        chooseColor(sample.color);
+        setRecent((previous) =>
+          [sample.color, ...previous.filter((c) => c !== sample.color)].slice(
+            0,
+            6,
+          ),
         );
         setError("");
         send("PICK");
@@ -205,7 +209,7 @@ export function useStudio() {
       return;
     }
     if (phaseRef.current === "armed") {
-      if (!inBounds(world)) {
+      if (!inBounds(world, dimensions)) {
         setError("Start your stroke inside the white artwork.");
         return;
       }
@@ -245,7 +249,7 @@ export function useStudio() {
       return;
     }
     const world = toWorld(p, viewRef.current);
-    if (!inBounds(world)) {
+    if (!inBounds(world, dimensions)) {
       fail("Stroke left the artwork. No stroke was saved.");
       return;
     }
@@ -256,6 +260,7 @@ export function useStudio() {
       performance.now() - g.started,
       g.color,
       g.width,
+      dimensions,
     );
     if (message) {
       fail(message);
@@ -271,26 +276,39 @@ export function useStudio() {
     if (!g) return;
     if (g.kind === "draw") {
       const duration = performance.now() - g.started;
-      const message = validateStroke(g.points, duration, g.color, g.width);
+      const message = validateStroke(g.points, duration, g.color, g.width, dimensions);
       if (message) {
         fail(message);
         return;
       }
-      const stroke: Stroke = {
-        id: crypto.randomUUID(),
+      const candidate: Candidate = {
+        requestId: crypto.randomUUID(),
         points: g.points.map((p) => ({ ...p })),
         color: g.color,
         width: g.width,
-        createdAt: new Date().toISOString(),
         duration,
-        bounds: bounds(g.points, g.width),
       };
-      strokesRef.current = [...strokesRef.current, stroke];
-      setStrokes(strokesRef.current);
-      setRecent((previous) =>
-        [g.color, ...previous.filter((c) => c !== g.color)].slice(0, 6),
-      );
+      release();
       send("UP");
+      redraw();
+      void persist(candidate)
+        .then(() => {
+          setRecent((previous) =>
+            [
+              candidate.color,
+              ...previous.filter((c) => c !== candidate.color),
+            ].slice(0, 6),
+          );
+          send("SAVED");
+        })
+        .catch((error) =>
+          fail(
+            error instanceof Error
+              ? error.message
+              : "Could not save the stroke.",
+          ),
+        );
+      return;
     }
     release();
     redraw();

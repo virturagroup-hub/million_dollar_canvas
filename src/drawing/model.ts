@@ -40,13 +40,16 @@ export function zoomAt(v: View, p: Point, factor: number): View {
   );
   return { zoom, x: p.x - world.x * zoom, y: p.y - world.y * zoom };
 }
-export const inBounds = (p: Point) =>
+export const inBounds = (
+  p: Point,
+  dimensions: { width: number; height: number } = RULES,
+) =>
   Number.isFinite(p.x) &&
   Number.isFinite(p.y) &&
   p.x >= 0 &&
   p.y >= 0 &&
-  p.x <= RULES.width &&
-  p.y <= RULES.height;
+  p.x <= dimensions.width &&
+  p.y <= dimensions.height;
 export const distance = (a: Point, b: Point) =>
   Math.hypot(a.x - b.x, a.y - b.y);
 export function validateStroke(
@@ -54,6 +57,7 @@ export function validateStroke(
   duration: number,
   color: string,
   width: number,
+  dimensions: { width: number; height: number } = RULES,
 ): string | null {
   if (!normalizeColor(color)) return "Choose a valid six-digit hex color.";
   if (!(RULES.widths as readonly number[]).includes(width))
@@ -66,7 +70,8 @@ export function validateStroke(
     return "Stroke exceeded the 15-second limit. Please try again.";
   if (!points.length || points.length > RULES.maxPoints)
     return "Stroke exceeded the point limit or was empty.";
-  if (!points.every(inBounds)) return "Keep your stroke inside the artwork.";
+  if (!points.every((p) => inBounds(p, dimensions)))
+    return "Keep your stroke inside the artwork.";
   const length = points.reduce(
     (sum, p, i) => sum + (i ? distance(points[i - 1], p) : 0),
     0,
@@ -90,6 +95,7 @@ export type Phase =
   | "countdown"
   | "armed"
   | "drawing"
+  | "submitting"
   | "completed"
   | "cancelled"
   | "failed";
@@ -101,6 +107,9 @@ export type Action =
   | "READY"
   | "DOWN"
   | "UP"
+  | "SAVED"
+  | "STOP_SAMPLING"
+  | "RETRY"
   | "CANCEL"
   | "FAIL";
 export function transition(phase: Phase, action: Action): Phase {
@@ -117,12 +126,14 @@ export function transition(phase: Phase, action: Action): Phase {
     return "cancelled";
   const edges: Partial<Record<Phase, Partial<Record<Action, Phase>>>> = {
     preparing: { SAMPLE: "sampling", LOCK: "countdown" },
-    sampling: { PICK: "preparing" },
+    sampling: { PICK: "preparing", STOP_SAMPLING: "preparing" },
     countdown: { READY: "armed" },
     armed: { DOWN: "drawing" },
-    drawing: { UP: "completed" },
+    drawing: { UP: "submitting" },
+    submitting: { SAVED: "completed" },
+    failed: { RETRY: "submitting" },
   };
   return edges[phase]?.[action] ?? phase;
 }
 export const navigable = (p: Phase) =>
-  !["countdown", "armed", "drawing", "sampling"].includes(p);
+  !["countdown", "armed", "drawing", "sampling", "submitting"].includes(p);

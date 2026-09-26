@@ -1,5 +1,10 @@
 "use client";
 import Link from "next/link";
+import { useCallback, useMemo, useState } from "react";
+import { useArtwork } from "@/client/useArtwork";
+import { api } from "@/client/api";
+import ColorLoupe from "./ColorLoupe";
+import AuthDialog from "./AuthDialog";
 import {
   RULES,
   navigable,
@@ -16,11 +21,22 @@ const guidance: Record<Phase, string> = {
   countdown: "View locked. Get ready…",
   armed: "DRAW",
   drawing: "Make your mark.",
+  submitting: "Saving your stroke…",
   completed: "One stroke. Part of something bigger.",
   cancelled: "Take your time. The canvas is here.",
   failed: "Let’s try that again.",
 };
-export default function Studio() {
+export default function Studio({ notice = "" }: { notice?: string }) {
+  const artwork = useArtwork();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [resumeAfterAuth, setResumeAfterAuth] = useState(false);
+  const dimensions = useMemo(
+    () => ({
+      width: artwork.canvas?.width ?? RULES.width,
+      height: artwork.canvas?.height ?? RULES.height,
+    }),
+    [artwork.canvas?.width, artwork.canvas?.height],
+  );
   const {
     canvas,
     phaseRef,
@@ -50,7 +66,43 @@ export default function Studio() {
     locked,
     readyToAdd,
     center,
-  } = useStudio();
+  } = useStudio({
+    strokes: artwork.strokes,
+    dimensions,
+    persist: artwork.save,
+  });
+  const cancelSample = useCallback(() => send("STOP_SAMPLING"), [send]);
+  function addStroke() {
+    release();
+    setError("");
+    if (!artwork.user) {
+      if (!artwork.configured) {
+        setError(
+          "Supabase is not configured. Follow the setup instructions in README.",
+        );
+        return;
+      }
+      setResumeAfterAuth(true);
+      setAuthOpen(true);
+      return;
+    }
+    if (artwork.canDraw) send("ADD");
+  }
+  async function signOut() {
+    try {
+      await api("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "signout" }),
+      });
+      send("CANCEL");
+      release();
+      artwork.discardPending();
+      await artwork.refreshUser();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not sign out.");
+    }
+  }
   return (
     <main>
       <header>
@@ -64,7 +116,29 @@ export default function Studio() {
             million dollar canvas<small>ONE STROKE AT A TIME</small>
           </span>
         </Link>
-        <span className="badge">LOCAL STUDIO · MILESTONE 01</span>
+        <div className="account">
+          <span className="badge">PERSISTENT STUDIO · MILESTONE 02</span>
+          {artwork.user ? (
+            <>
+              <span>Signed in as {artwork.user.displayName}</span>
+              <button
+                disabled={["drawing", "submitting"].includes(phase)}
+                onClick={() => void signOut()}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                setResumeAfterAuth(false);
+                setAuthOpen(true);
+              }}
+            >
+              Sign in
+            </button>
+          )}
+        </div>
       </header>
       <section className="intro">
         <div>
@@ -76,14 +150,49 @@ export default function Studio() {
         </div>
         <div className="local-note">
           <span className="dot" /> A space to experiment
-          <small>Local prototype · Artwork resets on refresh</small>
+          <small>Account-based artwork · Stored as vectors</small>
         </div>
       </section>
+      {notice && (
+        <p className="artwork-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {(artwork.loading ||
+        artwork.loadError ||
+        artwork.authError ||
+        artwork.next !== null) && (
+        <div className="artwork-notice" role="status">
+          {artwork.loading
+            ? "Loading saved artwork…"
+            : artwork.loadError ||
+              artwork.authError ||
+              `Showing ${strokes.length} saved strokes. More artwork is available; load it before drawing.`}
+          {!artwork.loading && artwork.loadError && (
+            <button onClick={() => void artwork.load()}>Retry artwork</button>
+          )}
+          {!artwork.loading && artwork.canLoadMore && (
+            <button onClick={() => void artwork.load(artwork.next!)}>
+              Load more artwork
+            </button>
+          )}
+          {!artwork.canLoadMore && artwork.next !== null && (
+            <p>
+              This prototype has reached its vector viewing limit. Larger
+              canvases need the later tiled renderer.
+            </p>
+          )}
+        </div>
+      )}
       <section className="workspace">
         <div className="canvas-panel">
           <div className="canvas-top">
             <span>
-              UNTITLED CANVAS <small>4,000 × 3,000</small>
+              {artwork.canvas?.title ?? "CANVAS UNAVAILABLE"}{" "}
+              <small>
+                {dimensions.width.toLocaleString()} ×{" "}
+                {dimensions.height.toLocaleString()}
+              </small>
             </span>
             <span className={locked ? "lock active" : "lock"}>
               {locked ? "● View locked" : "↔ Explore freely"}
@@ -111,7 +220,10 @@ export default function Studio() {
                 else release();
               }}
               onKeyDown={(e) => {
-                if (e.key === "Escape") send("CANCEL");
+                if (e.key === "Escape") {
+                  if (phaseRef.current === "sampling") send("STOP_SAMPLING");
+                  else send("CANCEL");
+                }
                 if (!navigable(phaseRef.current) || gesture.current) return;
                 const offsets: Record<string, Point> = {
                   ArrowLeft: { x: 60, y: 0 },
@@ -139,16 +251,24 @@ export default function Studio() {
                 <span>YOUR NEXT MARK STARTS HERE</span>
               </div>
             )}
-            {strokes.length === 0 && phase === "idle" && (
-              <div className="empty">
-                <span>↗</span>
-                <h2>It starts with one stroke.</h2>
-                <p>And this one is yours.</p>
-              </div>
-            )}
+            {strokes.length === 0 &&
+              phase === "idle" &&
+              !artwork.loading &&
+              !artwork.loadError &&
+              artwork.canvas && (
+                <div className="empty">
+                  <span>↗</span>
+                  <h2>It starts with one stroke.</h2>
+                  <p>And this one is yours.</p>
+                </div>
+              )}
             <div className="map" aria-label="Viewport location">
-              <svg viewBox={`0 0 ${RULES.width} ${RULES.height}`}>
-                <rect width={RULES.width} height={RULES.height} fill="white" />
+              <svg viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}>
+                <rect
+                  width={dimensions.width}
+                  height={dimensions.height}
+                  fill="white"
+                />
                 <rect
                   x={-view.x / view.zoom}
                   y={-view.y / view.zoom}
@@ -163,7 +283,7 @@ export default function Studio() {
           </div>
           <div className="canvas-bottom">
             <span data-testid="stroke-count">
-              {strokes.length} local{" "}
+              {strokes.length} saved{" "}
               {strokes.length === 1 ? "stroke" : "strokes"}
             </span>
             <span className="coordinates">
@@ -248,13 +368,47 @@ export default function Studio() {
           {readyToAdd && (
             <button
               className="primary"
-              onClick={() => {
-                release();
-                setError("");
-                send("ADD");
-              }}
+              disabled={!!artwork.user && !artwork.canDraw}
+              onClick={addStroke}
             >
               + Add Stroke
+            </button>
+          )}
+          {artwork.pending && phase !== "submitting" && (
+            <div className="save-recovery">
+              <p>
+                Save unconfirmed. This stroke is not shown as official artwork.
+              </p>
+              <button
+                disabled={artwork.saving}
+                onClick={() => {
+                  setError("");
+                  send("RETRY");
+                  void artwork
+                    .save(artwork.pending!)
+                    .then(() => send("SAVED"))
+                    .catch((error) => {
+                      send("FAIL");
+                      setError(error.message);
+                    });
+                }}
+              >
+                Retry same stroke
+              </button>
+              <button
+                disabled={artwork.saving}
+                onClick={() => {
+                  artwork.discardPending();
+                  void artwork.load();
+                }}
+              >
+                Discard preview &amp; reload
+              </button>
+            </div>
+          )}
+          {phase === "sampling" && (
+            <button className="cancel" onClick={cancelSample}>
+              Cancel color picking
             </button>
           )}
           {phase === "preparing" && (
@@ -290,14 +444,53 @@ export default function Studio() {
             onSample={() => send("SAMPLE")}
           />
           <p className="footnote">
-            One press. One continuous line. One lasting mark for this session.
+            One press. One continuous line. Saved only after server acceptance.
           </p>
+          {artwork.strokes.length > 0 && (
+            <details className="attribution">
+              <summary>Recent contributors</summary>
+              <ul>
+                {artwork.strokes
+                  .slice(-10)
+                  .reverse()
+                  .map((stroke) => (
+                    <li key={stroke.id}>
+                      {stroke.author.displayName}{" "}
+                      <time dateTime={stroke.createdAt}>
+                        {new Date(stroke.createdAt).toLocaleString()}
+                      </time>
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          )}
         </aside>
       </section>
       <footer>
         <span>DRAW WITH THE INTERNET.</span>
         <span>For now, a little corner of it is yours.</span>
       </footer>
+      {phase === "sampling" && (
+        <ColorLoupe
+          canvas={canvas}
+          view={viewRef}
+          dimensions={dimensions}
+          onCancel={cancelSample}
+          onError={setError}
+        />
+      )}
+      {authOpen && (
+        <AuthDialog
+          onClose={() => setAuthOpen(false)}
+          onSignedIn={async () => {
+            const user = await artwork.refreshUser();
+            if (user) {
+              setAuthOpen(false);
+              if (resumeAfterAuth && artwork.canDraw) send("ADD");
+            }
+          }}
+        />
+      )}
     </main>
   );
 }

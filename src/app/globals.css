@@ -5,6 +5,151 @@
   --green: #235c4b;
   --paper: #f7f7f0;
 }
+.account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.account button {
+  font-size: 11px;
+}
+.artwork-notice {
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  background: #edf0e6;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  line-height: 1.6;
+}
+.artwork-notice button {
+  margin-left: 12px;
+}
+.save-recovery {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.save-recovery button {
+  margin: 4px;
+}
+.loupe {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  width: 128px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 22px #0004;
+  border: 1px solid #526457;
+}
+.loupe[hidden] {
+  display: none;
+}
+.loupe-image {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  overflow: hidden;
+}
+.loupe canvas {
+  width: 120px;
+  height: 120px;
+  image-rendering: pixelated;
+}
+.loupe output {
+  display: block;
+  font: 12px/25px monospace;
+  text-align: center;
+  color: #172c23;
+}
+.reticle {
+  position: absolute;
+  left: 56px;
+  top: 56px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid black;
+  outline: 1px solid white;
+  box-shadow: 0 0 0 2px #0007;
+}
+.reticle::before,
+.reticle::after {
+  content: "";
+  position: absolute;
+  background: white;
+  box-shadow: 0 0 0 1px black;
+}
+.reticle::before {
+  width: 1px;
+  height: 7px;
+  top: -10px;
+  left: 3px;
+}
+.reticle::after {
+  height: 1px;
+  width: 7px;
+  left: -10px;
+  top: 3px;
+}
+.auth-dialog {
+  width: min(420px, calc(100% - 32px));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 28px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.auth-dialog::backdrop {
+  background: #132a2366;
+}
+.auth-dialog h2 {
+  font:
+    32px Georgia,
+    serif;
+}
+.auth-dialog p,
+.auth-dialog small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.auth-dialog input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px;
+}
+.auth-dialog .primary {
+  margin-top: 24px;
+}
+.dialog-close {
+  float: right;
+}
+.attribution {
+  font-size: 11px;
+  margin-top: 24px;
+}
+.attribution ul {
+  padding-left: 18px;
+}
+.attribution li {
+  margin: 10px 0;
+}
+.attribution time {
+  display: block;
+  color: var(--muted);
+}
+@media (max-width: 700px) {
+  .account .badge {
+    display: none;
+  }
+  .account {
+    max-width: 50%;
+    gap: 6px;
+  }
+}
 * {
   box-sizing: border-box;
 }
@@ -291,7 +436,7 @@ fieldset {
   border: 0;
   border-top: 1px solid var(--line);
   padding: 15px 0 0;
-  margin: 0;
+  margin: 28px 0 0;
 }
 legend {
   font-size: 9px;

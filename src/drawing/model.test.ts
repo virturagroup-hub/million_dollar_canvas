@@ -29,6 +29,7 @@ describe("workflow", () => {
       "READY",
       "DOWN",
       "UP",
+      "SAVED",
       "DOWN",
       "UP",
     ] as const) {
