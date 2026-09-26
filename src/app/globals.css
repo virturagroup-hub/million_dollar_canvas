@@ -1,0 +1,511 @@
+:root {
+  --ink: #263d35;
+  --muted: #72776f;
+  --line: #dedfd6;
+  --green: #235c4b;
+  --paper: #f7f7f0;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "DM Sans", Arial, sans-serif;
+  font-size: 14px;
+}
+main {
+  max-width: 1800px;
+  margin: auto;
+  padding: 0 44px;
+}
+header {
+  height: 100px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 600;
+}
+.mark {
+  font: italic 46px Georgia;
+  color: var(--green);
+}
+.brand small {
+  display: block;
+  letter-spacing: 2.3px;
+  font-size: 8px;
+  margin-top: 6px;
+}
+.badge {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 10px 14px;
+}
+.intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 35px 0 30px;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+h1 {
+  font:
+    52px "Libre Caslon Display",
+    Georgia,
+    serif;
+  margin: 0 0 9px;
+  letter-spacing: -1px;
+}
+.intro p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.local-note {
+  font-size: 12px;
+}
+.local-note small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 8px;
+}
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #598868;
+  margin-right: 8px;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 275px;
+  gap: 32px;
+}
+.canvas-panel {
+  border: 1px solid #d5d8ce;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  min-width: 0;
+}
+.canvas-top,
+.canvas-bottom {
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  font-size: 10px;
+  background: #fbfcf8;
+  gap: 10px;
+}
+.canvas-top > span:first-child {
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.canvas-top small {
+  font-size: 9px;
+  color: var(--muted);
+  margin-left: 12px;
+  letter-spacing: 0;
+}
+.lock {
+  color: var(--muted);
+}
+.lock.active {
+  color: var(--green);
+  font-weight: 700;
+}
+.surface {
+  height: clamp(390px, 57vh, 750px);
+  position: relative;
+  overflow: hidden;
+  border-block: 1px solid var(--line);
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+}
+.empty {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 90%;
+  color: #9a9d91;
+}
+.empty > span {
+  font: 48px Georgia;
+  color: #b5bbac;
+}
+.empty h2 {
+  font:
+    30px "Libre Caslon Display",
+    Georgia,
+    serif;
+  color: #707b6b;
+  margin: 16px 0 10px;
+}
+.empty p {
+  font-size: 12px;
+}
+.map {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  width: 88px;
+  height: 66px;
+  border: 1px solid #cbd0c5;
+  box-shadow: 0 2px 10px #00000008;
+  pointer-events: none;
+  overflow: hidden;
+}
+.map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.canvas-bottom {
+  height: 49px;
+  color: var(--muted);
+}
+.coordinates {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.zoom button {
+  padding: 5px 9px;
+  font-size: 12px;
+  background: transparent;
+  border-color: transparent;
+}
+.zoom span {
+  min-width: 36px;
+  text-align: center;
+  font-size: 10px;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  border-radius: 5px;
+  padding: 10px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: #eef1e8;
+  border-color: #859a8d;
+}
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+canvas:focus-visible {
+  outline: 3px solid #bc823c;
+  outline-offset: 3px;
+}
+aside {
+  padding-top: 5px;
+}
+aside h2 {
+  font:
+    30px/1.08 "Libre Caslon Display",
+    Georgia,
+    serif;
+  margin: 0;
+}
+.steps {
+  list-style: none;
+  counter-reset: step;
+  padding: 0;
+  margin: 22px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.steps li {
+  counter-increment: step;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.steps li:before {
+  content: counter(step);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+}
+.steps .current {
+  color: var(--green);
+  font-weight: 600;
+}
+.steps .current:before {
+  background: var(--green);
+  color: white;
+}
+fieldset {
+  border: 0;
+  border-top: 1px solid var(--line);
+  padding: 15px 0 0;
+  margin: 0;
+}
+legend {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  padding-right: 10px;
+  color: var(--muted);
+}
+label {
+  display: block;
+  font-size: 11px;
+  margin: 10px 0 8px;
+}
+.color-row {
+  display: flex;
+  gap: 8px;
+}
+.color-row input[type="color"] {
+  width: 42px;
+  height: 38px;
+  border: 1px solid var(--line);
+  padding: 3px;
+  border-radius: 5px;
+  background: white;
+}
+.color-row input[type="text"],
+.color-row input:not([type]) {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+  background: white;
+  color: var(--ink);
+}
+.sample {
+  width: 100%;
+  font-size: 11px;
+  margin-top: 8px;
+  background: transparent;
+}
+.swatches {
+  display: flex;
+  gap: 7px;
+  min-height: 25px;
+  align-items: center;
+}
+.swatches button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  padding: 0;
+}
+.swatches small {
+  font-size: 10px;
+  color: var(--muted);
+}
+select {
+  width: 100%;
+  padding: 9px;
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.status {
+  padding: 15px 0 10px;
+}
+.status > span {
+  font-size: 8px;
+  letter-spacing: 1.6px;
+  color: var(--green);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 7px;
+}
+.status strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.status p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 7px 0;
+}
+.primary {
+  width: 100%;
+  background: var(--green);
+  color: white;
+  border: 0;
+  font-size: 12px;
+  padding: 14px;
+}
+.primary:hover:not(:disabled) {
+  background: #194a3b;
+  color: white;
+}
+.cancel {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+  margin-top: 5px;
+}
+.footnote {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+  text-align: center;
+  margin: 12px 8px;
+}
+.error {
+  color: #9b362b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  pointer-events: none;
+  background: #f7f7f044;
+}
+.countdown b {
+  font: 110px Georgia;
+  color: var(--green);
+}
+.countdown span {
+  font-size: 9px;
+  letter-spacing: 3px;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  margin: 26px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+footer span:first-child {
+  letter-spacing: 1.7px;
+}
+fieldset:disabled {
+  opacity: 0.7;
+}
+@media (max-width: 1000px) {
+  main {
+    padding: 0 22px;
+  }
+  .workspace {
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+  .coordinates {
+    display: none;
+  }
+  .local-note {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  main {
+    padding: 0 16px;
+  }
+  header {
+    height: 76px;
+  }
+  .brand {
+    font-size: 14px;
+  }
+  .badge {
+    font-size: 7px;
+    letter-spacing: 0.6px;
+    padding: 7px;
+  }
+  .intro {
+    padding: 25px 0;
+  }
+  h1 {
+    font-size: 40px;
+  }
+  .intro p:last-child {
+    font-size: 11px;
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .surface {
+    height: 420px;
+  }
+  .canvas-top {
+    padding: 0 10px;
+  }
+  .canvas-top small {
+    display: none;
+  }
+  aside {
+    padding: 15px 5px;
+  }
+  .steps {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .canvas-bottom {
+    padding: 0 8px;
+  }
+  .zoom {
+    gap: 0;
+  }
+  footer {
+    gap: 20px;
+  }
+}
