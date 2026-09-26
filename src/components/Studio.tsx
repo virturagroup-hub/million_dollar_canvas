@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useArtwork } from "@/client/useArtwork";
 import { api } from "@/client/api";
 import ColorLoupe from "./ColorLoupe";
@@ -27,6 +27,18 @@ const guidance: Record<Phase, string> = {
   failed: "Let’s try that again.",
 };
 export default function Studio({ notice = "" }: { notice?: string }) {
+  const [authNotice, setAuthNotice] = useState(notice);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("confirmed") || url.searchParams.has("auth_error")) {
+      url.searchParams.delete("confirmed");
+      url.searchParams.delete("auth_error");
+      // Replace the consumed result without a server navigation or history entry.
+      window.history.replaceState(window.history.state, "", url.href);
+    }
+    const timer = window.setTimeout(() => setAuthNotice(""), 7000);
+    return () => window.clearTimeout(timer);
+  }, []);
   const artwork = useArtwork();
   const [authOpen, setAuthOpen] = useState(false);
   const [resumeAfterAuth, setResumeAfterAuth] = useState(false);
@@ -153,9 +165,9 @@ export default function Studio({ notice = "" }: { notice?: string }) {
           <small>Account-based artwork · Stored as vectors</small>
         </div>
       </section>
-      {notice && (
+      {authNotice && (
         <p className="artwork-notice" role="status">
-          {notice}
+          {authNotice}
         </p>
       )}
       {(artwork.loading ||
@@ -485,6 +497,7 @@ export default function Studio({ notice = "" }: { notice?: string }) {
           onSignedIn={async () => {
             const user = await artwork.refreshUser();
             if (user) {
+              setAuthNotice("");
               setAuthOpen(false);
               if (resumeAfterAuth && artwork.canDraw) send("ADD");
             }

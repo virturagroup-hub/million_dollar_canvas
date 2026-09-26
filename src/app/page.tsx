@@ -7,7 +7,7 @@ export default async function Page({
   const query = await searchParams;
   const notice = query.auth_error
     ? "That confirmation link could not be verified. Try signing in or request a fresh confirmation email."
-    : query.confirmed
+    : query.confirmed === "1"
       ? "Email confirmed. You can sign in and add your first stroke."
       : "";
   return <Studio notice={notice} />;
