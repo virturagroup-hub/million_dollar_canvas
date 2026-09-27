@@ -1,6 +1,6 @@
 # Million Dollar Canvas
 
-Draw with the Internet, one deliberate stroke at a time. **Milestone 3: realtime multiplayer viewing**, with account-based persistence and a magnifying canvas eyedropper. The drawing interaction remains: Add Stroke → position/options → lock → 3–2–1 → one continuous gesture.
+Draw with the Internet, one deliberate stroke at a time. The homepage is a public gallery with a live flagship feature, current canvases, and an archive. Each canvas has its own `/canvas/[slug]` studio. The drawing interaction remains: Add Stroke → position/options → lock → 3–2–1 → one continuous gesture.
 
 Next.js 16, React 19, strict TypeScript, native Canvas/Pointer Events, Supabase PostgreSQL/Auth/Realtime. No payments, credits, automated moderation, user reports, or scalable raster tiling.
 
@@ -29,11 +29,15 @@ npm run dev
 
 Open http://localhost:3000 (or http://127.0.0.1:3000). Missing configuration/schema produces an explicit loading error with retry, never a successful local save. To run the production build locally: `npm run build`, then `npm start`.
 
+The homepage lives at `/`, completed work at `/archive`, and the original artwork at `/canvas/open-studio`. The new flagship is `/canvas/million-dollar-canvas`. Canvas titles, categories, status, dimensions, counts and limits come from the public backend catalog; the featured canvas is selected by its `flagship` category, not its slug. Unknown canvas records show an unavailable state; malformed slugs use Next.js not-found.
+
 ## Database migration
 
-The complete migration is `supabase/migrations/20260926202402_milestone_2_persistence.sql`. It creates profiles, canvases, canonical strokes, separate visibility, indexes, constraints, RLS, the authenticated write function, and one seeded `open-studio` development canvas. It was generated with the Supabase CLI and executed in the local SQL tests. **It has not been applied to the hosted project from this environment.**
+The base migration is `supabase/migrations/20260926202402_milestone_2_persistence.sql`. It creates profiles, canvases, canonical strokes, separate visibility, indexes, constraints, RLS, the authenticated write function, and the original `open-studio` canvas.
 
-Apply `supabase/migrations/20260926212637_milestone_3_realtime.sql` **after** the Milestone 2 migration. It adds read-only, RLS-protected `canvas_updates` rendering metadata, private trigger logic, and publication membership for that table only. Both migrations run in local SQL tests. **The Milestone 3 migration has not been applied to the hosted project from this environment either.** If Milestone 2 was already applied, run only the new migration. No privileged browser key is needed.
+`supabase/migrations/20260926212637_milestone_3_realtime.sql` adds read-only, RLS-protected `canvas_updates` rendering metadata, private trigger logic, and publication membership for that table only. The project owner has confirmed that the hosted Milestones 2–3 migrations, Live status, two-browser updates, persistence, and reconnect behavior work. This is owner-provided hosted verification, separate from the agent's local tests.
+
+**New migration to apply:** `supabase/migrations/20260927054754_home_dashboard_multicanvas.sql`. On the existing hosted project, apply only this new file. It runs in a transaction, preserves the original canvas ID/slug and all strokes, reclassifies `development` canvases as `community`, and adds a separate empty flagship record. It adds categories (`flagship`, `community`, `special`), display order, optional stroke limits, and nullable future `credit_cost` metadata. No credits are sold, consumed, or priced. Approved totals are backfilled and maintained transactionally. The public `canvas_catalog` view uses `security_invoker` so underlying RLS still applies. **This new migration has not been applied to the hosted project by the agent.** Fresh installations apply all three files in timestamp order.
 
 Recommended, from an authenticated CLI:
 
@@ -53,6 +57,8 @@ If CLI management access is unavailable, open the correct project's **Supabase D
 With Docker installed, `npx supabase start` can run the local stack using the committed config/migrations. Docker was unavailable during implementation; the portable PGlite SQL tests do not need it.
 
 The local config now enables Realtime. On the hosted project, ensure Realtime is enabled and `canvas_updates` appears in `supabase_realtime` after the migration. Do not add `strokes`, `stroke_visibility`, profiles, or auth tables to the publication for this feature. Existing grants and RLS on canonical records stay unchanged.
+
+The catalog migration needs no extra Realtime publication toggle. After applying it, open `/`, verify the flagship and Open Studio cards, then enter `/canvas/open-studio` and confirm the existing artwork is still present. Leave the gallery open in a second browser while adding a stroke in the studio; only the matching preview/count should change. SQL migration tests also cover backfill, immutable stroke preservation, catalog privacy, count reconciliation, and configured-limit rejection.
 
 ## Authentication setup
 
@@ -84,7 +90,7 @@ npm run test:e2e             # HTTP-intercepted browser regression suite
 
 The default browser suite starts Next.js locally or reuses a server at port 3000. Its fixture is confined to Playwright network interception; the app has no fake persistence mode. SQL tests use PGlite with a test-only Supabase Auth fixture. See [architecture and verification boundaries](docs/architecture.md).
 
-For **real hosted** acceptance tests, apply both migrations, start the configured app, and provide `E2E_EMAIL` and `E2E_PASSWORD` as process environment variables for an already-confirmed test account in a disposable development project. Optionally set `E2E_BASE_URL`. Run `npm run test:e2e:hosted`. The persistence and realtime tests each leave one permanent test dot. The realtime test opens an independent anonymous browser, requires a real websocket notification, checks automatic appearance, then reloads both browsers. Run only against a quiet development canvas below the 2,000-vector cap. Tests skip explicitly when credentials are absent; skipped tests are not hosted verification.
+For **real hosted** acceptance tests, apply all three migrations, start the configured app, and provide `E2E_EMAIL` and `E2E_PASSWORD` as process environment variables for an already-confirmed test account in a disposable development project. Optionally set `E2E_BASE_URL`. Run `npm run test:e2e:hosted`. The persistence and realtime tests now visit `/canvas/open-studio` and each leave one permanent test dot. The realtime test opens an independent anonymous browser, requires a real websocket notification, checks automatic appearance, then reloads both browsers. Run only against a quiet development canvas below the 2,000-vector cap. Tests skip explicitly when credentials are absent; skipped tests are not hosted verification.
 
 ## Live collaboration
 
@@ -98,6 +104,8 @@ The small status label shows Live only after a confirmed subscription and succes
 
 Manual acceptance: open the app in two independent browsers, sign into A, and leave B anonymous. Wait for Live on both. Add a small stroke in A; B should show its geometry, saved count, and contributor without refresh. Disconnect B briefly, add another in A, then reconnect B and verify catch-up. Refresh both and compare. A second tab is supported without cross-tab coordination.
 
+Homepage previews use the same canonical reader/reconciler with a separate read-only renderer, capped at 500 vectors each. They never load drawing controls, pointer capture, or per-preview account checks. A page shows one flagship and at most four current previews; all five scoped channels share the existing browser client's websocket. Pagination unmounts old previews. Archive previews are snapshots without subscriptions. Counts use server-maintained approved totals even when only a partial preview is rendered. Contributor totals are deliberately omitted. Gallery membership is refreshed on navigation/pagination; there is no global cross-canvas channel or automatic canvas rotation.
+
 ## Architecture and limitations
 
 **The browser proposes artwork changes. The server decides whether they become canonical.**
@@ -110,6 +118,10 @@ Shared logical vectors render both in-progress and persisted artwork. Next.js va
 - Geometry limits: 15 seconds, 3,000 points, 12,000 logical units of path length, widths 2/6/12, and a 160 KB HTTP body. A tap is a dot. Leaving artwork bounds, pointer cancellation/capture loss, or focus loss discards the unfinished candidate. Duration metadata is not proof of gesture timing.
 - Anti-aliased pixel sampling can return blended colors. Touch uses one pointer and zoom buttons; pressure/pinch are not implemented. Physical stylus and non-Chromium engines remain unverified.
 - Account deletion/anonymization, password reset UI, profile editing, distributed edge read throttling, and paid one-use stroke authorizations are future work. Database write rate limiting is ten accepted strokes per user per minute.
-- Hosted migration application, advisor checks, real email confirmation, signed-in session refresh, and hosted persistence/realtime acceptance remain manual steps until the project is configured. Deterministic browser tests intercept HTTP and websocket frames; they do not prove hosted realtime connectivity.
+- The new catalog migration, hosted advisor checks, and hosted acceptance of the new product shell remain manual steps. Deterministic browser tests intercept HTTP and websocket frames; they do not independently prove hosted connectivity. Existing hosted Milestone 3 behavior was verified by the project owner.
 
-The full [engineering constitution](AGENTS.md) remains binding; section 95 defines the milestones. Milestone 4 payments/credits and later functionality have not been implemented.
+## Roadmap and Git integration
+
+Milestones 1–3 are complete, including owner-verified hosted realtime. PR #3 cumulatively included PRs #1–2 and was merged once into `main` with merge commit `1ddbdba90856e6c1b017a94b1ad0bc5eedacb4b0`; GitHub marked the ancestor PRs merged/closed automatically. No force-push or duplicate milestone merge was used. The gallery/multi-canvas work branches from that integrated main.
+
+This intermediate milestone establishes the product shell and multiple manually configured canvas records. Milestone 4 payments/credits is next, only when explicitly requested. Moderation and weekly scheduling/archive automation come later. Multiple records do **not** mean weekly automation exists. Stroke-limit checks enforce capacity but do not seal, finalize, number official masterpiece strokes, or produce provenance archives. Production flagship completion still needs its dedicated concurrency/finalization milestone. The full [engineering constitution](AGENTS.md) remains binding.

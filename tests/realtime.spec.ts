@@ -25,7 +25,7 @@ test("subscription repairs the initial load gap and a delayed save cannot resurr
   const fixture = realtimeFixture();
   await fixture.attach(context);
   fixture.onNextJoin(() => fixture.add()); // Commit after HTTP baseline, before subscription acknowledgement.
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await expect(page.getByTestId("live-status")).toHaveText("Live");
   await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
   const box = await arm(page);
@@ -52,7 +52,11 @@ test("two independent contexts and a second tab receive canonical geometry; orig
   await fixture.attach(other, false);
   const viewer = await other.newPage();
   const tab = await other.newPage();
-  await Promise.all([page.goto("/"), viewer.goto("/"), tab.goto("/")]);
+  await Promise.all([
+    page.goto("/canvas/open-studio"),
+    viewer.goto("/canvas/open-studio"),
+    tab.goto("/canvas/open-studio"),
+  ]);
   for (const p of [page, viewer, tab])
     await expect(p.getByTestId("live-status")).toHaveText("Live");
   expect(fixture.connections).toBe(3);
@@ -82,7 +86,7 @@ test("reconnect, missed events, scoping, burst batching and suppression reconcil
   const fixture = realtimeFixture();
   await fixture.attach(context, false);
   await page.clock.install();
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await expect(page.getByTestId("live-status")).toHaveText("Live");
   fixture.disconnect(context);
   await expect(page.getByTestId("live-status")).toHaveText("Reconnecting");
@@ -130,7 +134,7 @@ test("remote updates retain the locked viewport and in-progress local gesture", 
 }) => {
   const fixture = realtimeFixture();
   await fixture.attach(context);
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await expect(page.getByTestId("live-status")).toHaveText("Live");
   const box = await arm(page);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

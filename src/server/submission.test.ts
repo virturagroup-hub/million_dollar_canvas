@@ -18,6 +18,11 @@ const canvas: CanvasRecord = {
   width: 4000,
   height: 3000,
   status: "open",
+  canvas_type: "community",
+  stroke_limit: null,
+  credit_cost: null,
+  display_order: 0,
+  approved_count: 0,
   opens_at: null,
   closes_at: null,
 };
