@@ -15,7 +15,10 @@ export async function GET(
     const raw = new URL(request.url).searchParams.get("after") ?? "0";
     if (!/^\d{1,15}$/.test(raw))
       throw new RequestError(400, "Invalid page cursor.");
-    return json({ canvas, ...(await store.page(canvas.id, Number(raw))) });
+    const resetVersion = new URL(request.url).searchParams.get("resetVersion") ?? "0";
+    if (!/^\d{1,15}$/.test(resetVersion))
+      throw new RequestError(400, "Invalid artwork version.");
+    return json({ canvas, ...(await store.page(canvas.id, Number(raw), Number(resetVersion))) });
   } catch (error) {
     return failure(error);
   }

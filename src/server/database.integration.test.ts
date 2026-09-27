@@ -24,6 +24,12 @@ beforeAll(async () => {
     JSON.stringify({ display_name: "Painter" }),
     "private@example.test",
   ]);
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20260926212637_milestone_3_realtime.sql",
+      "utf8",
+    ),
+  );
 }, 30000);
 afterAll(async () => {
   await db.close();
@@ -174,8 +180,66 @@ it("prevents even the service path from overwriting original vectors", async () 
 });
 it("all exposed tables have RLS enabled", async () => {
   const result = await db.query<{ relrowsecurity: boolean }>(
-    "select relrowsecurity from pg_class where oid in ('public.profiles'::regclass,'public.canvases'::regclass,'public.strokes'::regclass,'public.stroke_visibility'::regclass)",
+    "select relrowsecurity from pg_class where oid in ('public.profiles'::regclass,'public.canvases'::regclass,'public.strokes'::regclass,'public.stroke_visibility'::regclass,'public.canvas_updates'::regclass)",
   );
-  expect(result.rows).toHaveLength(4);
+  expect(result.rows).toHaveLength(5);
   expect(result.rows.every((r) => r.relrowsecurity)).toBe(true);
 });
+
+it("publishes only canvas rendering metadata, atomically with approved artwork", async () => {
+  await save();
+  await db.exec("set local role anon");
+  const updates = await db.query<Record<string, unknown>>(
+    "select * from public.canvas_updates",
+  );
+  expect(updates.rows).toHaveLength(1);
+  expect(Object.keys(updates.rows[0]).sort()).toEqual([
+    "canvas_id",
+    "last_ordinal",
+    "reset_version",
+    "version",
+  ]);
+  expect(Number(updates.rows[0].version)).toBe(1);
+  const publication = await db.query(
+    "select tablename from pg_publication_tables where pubname='supabase_realtime'",
+  );
+  expect(publication.rows).toEqual([{ tablename: "canvas_updates" }]);
+});
+it("visibility changes invalidate earlier cursors without publishing hidden records", async () => {
+  await save();
+  await db.exec(
+    "reset role; update public.stroke_visibility set status='suppressed'",
+  );
+  let revision = (
+    await db.query<Record<string, unknown>>(
+      "select * from public.canvas_updates",
+    )
+  ).rows[0];
+  expect(Number(revision.reset_version)).toBe(2);
+  await db.exec("update public.stroke_visibility set status='rejected'");
+  revision = (
+    await db.query<Record<string, unknown>>(
+      "select * from public.canvas_updates",
+    )
+  ).rows[0];
+  expect(Number(revision.version)).toBe(2); // Hidden-to-hidden changes emit nothing.
+  await db.exec("set local role anon");
+  expect((await db.query("select * from public.strokes")).rows).toHaveLength(0);
+});
+it("anonymous viewers cannot see draft canvas notifications", async () => {
+  await db.exec(
+    "update public.canvases set status='draft'; set local role anon",
+  );
+  expect(
+    (await db.query("select * from public.canvas_updates")).rows,
+  ).toHaveLength(0);
+});
+it.each(["anon", "authenticated"])(
+  "%s cannot forge rendering notifications",
+  async (role) => {
+    await db.exec(`set local role ${role}`);
+    await expect(
+      db.exec("update public.canvas_updates set version=999"),
+    ).rejects.toThrow("permission denied");
+  },
+);

@@ -19,8 +19,12 @@ export async function mockArtwork(
     signedIn?: boolean;
     rejectSave?: boolean;
     initial?: PersistedStroke[];
+    realtime?: boolean;
   } = {},
 ) {
+  if (!options.realtime) {
+    await context.routeWebSocket("**/realtime/v1/websocket**", (socket) => socket.close());
+  }
   let signedIn = options.signedIn ?? true;
   let strokes = options.initial ?? [];
   await context.route("**/api/auth", async (route) => {

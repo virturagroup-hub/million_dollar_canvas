@@ -1,8 +1,8 @@
 # Million Dollar Canvas
 
-Draw with the Internet, one deliberate stroke at a time. **Milestone 2: account-based persistence**, plus a magnifying canvas eyedropper and improved sidebar spacing. The Milestone 1 interaction remains: Add Stroke → position/options → lock → 3–2–1 → one continuous gesture.
+Draw with the Internet, one deliberate stroke at a time. **Milestone 3: realtime multiplayer viewing**, with account-based persistence and a magnifying canvas eyedropper. The drawing interaction remains: Add Stroke → position/options → lock → 3–2–1 → one continuous gesture.
 
-Next.js 16, React 19, strict TypeScript, native Canvas/Pointer Events, Supabase PostgreSQL/Auth. No payments, credits, realtime multiplayer, automated moderation, user reports, or scalable raster tiling.
+Next.js 16, React 19, strict TypeScript, native Canvas/Pointer Events, Supabase PostgreSQL/Auth/Realtime. No payments, credits, automated moderation, user reports, or scalable raster tiling.
 
 ## Local setup
 
@@ -33,6 +33,8 @@ Open http://localhost:3000 (or http://127.0.0.1:3000). Missing configuration/sch
 
 The complete migration is `supabase/migrations/20260926202402_milestone_2_persistence.sql`. It creates profiles, canvases, canonical strokes, separate visibility, indexes, constraints, RLS, the authenticated write function, and one seeded `open-studio` development canvas. It was generated with the Supabase CLI and executed in the local SQL tests. **It has not been applied to the hosted project from this environment.**
 
+Apply `supabase/migrations/20260926212637_milestone_3_realtime.sql` **after** the Milestone 2 migration. It adds read-only, RLS-protected `canvas_updates` rendering metadata, private trigger logic, and publication membership for that table only. Both migrations run in local SQL tests. **The Milestone 3 migration has not been applied to the hosted project from this environment either.** If Milestone 2 was already applied, run only the new migration. No privileged browser key is needed.
+
 Recommended, from an authenticated CLI:
 
 ```sh
@@ -49,6 +51,8 @@ The CLI may prompt for your database password locally; do not commit it. Review 
 If CLI management access is unavailable, open the correct project's **Supabase Dashboard → SQL Editor → New query**, paste the **entire migration file**, and run it once. Keep the file as the schema source of truth. Dashboard execution does not register CLI migration history; reconcile history before later CLI pushes rather than rerunning the CREATE statements. No dashboard-only schema changes are needed.
 
 With Docker installed, `npx supabase start` can run the local stack using the committed config/migrations. Docker was unavailable during implementation; the portable PGlite SQL tests do not need it.
+
+The local config now enables Realtime. On the hosted project, ensure Realtime is enabled and `canvas_updates` appears in `supabase_realtime` after the migration. Do not add `strokes`, `stroke_visibility`, profiles, or auth tables to the publication for this feature. Existing grants and RLS on canonical records stay unchanged.
 
 ## Authentication setup
 
@@ -80,7 +84,19 @@ npm run test:e2e             # HTTP-intercepted browser regression suite
 
 The default browser suite starts Next.js locally or reuses a server at port 3000. Its fixture is confined to Playwright network interception; the app has no fake persistence mode. SQL tests use PGlite with a test-only Supabase Auth fixture. See [architecture and verification boundaries](docs/architecture.md).
 
-For a **real hosted** acceptance test, apply the migration, start the configured app, and provide `E2E_EMAIL` and `E2E_PASSWORD` as process environment variables for an already-confirmed test account in a disposable development project. Optionally set `E2E_BASE_URL`. Run `npm run test:e2e:hosted`. This creates one permanent test dot, reloads to verify it, and signs out. It skips explicitly when credentials are absent; a skipped test is not a hosted verification.
+For **real hosted** acceptance tests, apply both migrations, start the configured app, and provide `E2E_EMAIL` and `E2E_PASSWORD` as process environment variables for an already-confirmed test account in a disposable development project. Optionally set `E2E_BASE_URL`. Run `npm run test:e2e:hosted`. The persistence and realtime tests each leave one permanent test dot. The realtime test opens an independent anonymous browser, requires a real websocket notification, checks automatic appearance, then reloads both browsers. Run only against a quiet development canvas below the 2,000-vector cap. Tests skip explicitly when credentials are absent; skipped tests are not hosted verification.
+
+## Live collaboration
+
+**Realtime notifications are advisory. PostgreSQL remains the canonical artwork source.**
+
+One Supabase Postgres Changes subscription per canvas watches `canvas_updates`, filtered by canvas UUID. Notifications contain rendering version metadata only; geometry, authors, and private moderation/account data are never sent through this channel. The client fetches approved strokes through the canonical read API, deduplicates by stroke ID, and sorts by server ordinal. See [Supabase Postgres Changes](https://supabase.com/docs/guides/realtime/postgres-changes) and the [architecture notes](docs/architecture.md).
+
+Subscription success (including reconnect), tab visibility, and network restoration trigger reconciliation. Visible online tabs also check every 30 seconds to recover even if all notifications are lost. Bursts coalesce for 150 ms; normal reads fetch only new pages, never all vectors per notification. Changes to visibility invalidate the read cursor and rebuild the bounded approved set. Remote updates redraw the background while retaining the local gesture and locked viewport.
+
+The small status label shows Live only after a confirmed subscription and successful reconciliation, Reconnecting on transport/read failure, and Offline when the browser reports no network. HTTP save/retry remains available independently of websocket status. Existing artwork remains visible during transient read failures.
+
+Manual acceptance: open the app in two independent browsers, sign into A, and leave B anonymous. Wait for Live on both. Add a small stroke in A; B should show its geometry, saved count, and contributor without refresh. Disconnect B briefly, add another in A, then reconnect B and verify catch-up. Refresh both and compare. A second tab is supported without cross-tab coordination.
 
 ## Architecture and limitations
 
@@ -90,10 +106,10 @@ Shared logical vectors render both in-progress and persisted artwork. Next.js va
 
 - Valid strokes are **automatically approved for this development milestone**. This is not a production moderation system.
 - Cursor-based reads load 100 strokes at a time; the viewer caps page loading at 2,000 vectors. Drawing is disabled while artwork is incomplete. The current renderer is for small canvases; future tiled rendering replaces it.
-- A refresh reloads saved strokes; other users' changes require refresh. Recent colors and unfinished/unconfirmed local candidates do not survive refresh.
+- Other users' approved changes appear automatically. Recent colors and unfinished/unconfirmed local candidates do not survive refresh.
 - Geometry limits: 15 seconds, 3,000 points, 12,000 logical units of path length, widths 2/6/12, and a 160 KB HTTP body. A tap is a dot. Leaving artwork bounds, pointer cancellation/capture loss, or focus loss discards the unfinished candidate. Duration metadata is not proof of gesture timing.
 - Anti-aliased pixel sampling can return blended colors. Touch uses one pointer and zoom buttons; pressure/pinch are not implemented. Physical stylus and non-Chromium engines remain unverified.
 - Account deletion/anonymization, password reset UI, profile editing, distributed edge read throttling, and paid one-use stroke authorizations are future work. Database write rate limiting is ten accepted strokes per user per minute.
-- Hosted migration application, hosted advisor checks, real email confirmation, signed-in session refresh, and the hosted persistence E2E remain manual acceptance steps until the project is configured.
+- Hosted migration application, advisor checks, real email confirmation, signed-in session refresh, and hosted persistence/realtime acceptance remain manual steps until the project is configured. Deterministic browser tests intercept HTTP and websocket frames; they do not prove hosted realtime connectivity.
 
-The full [engineering constitution](AGENTS.md) remains binding; section 95 defines the milestones. Milestone 3 realtime and later functionality have not been implemented.
+The full [engineering constitution](AGENTS.md) remains binding; section 95 defines the milestones. Milestone 4 payments/credits and later functionality have not been implemented.

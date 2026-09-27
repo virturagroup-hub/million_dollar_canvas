@@ -9,11 +9,8 @@ import {
   type PublicProfile,
 } from "@/domain/canvas";
 import { api } from "./api";
-type Page = {
-  canvas: CanvasRecord;
-  strokes: PersistedStroke[];
-  next: number | null;
-};
+import { ArtworkStore, type ArtworkPage } from "./artworkStore";
+import { useRealtimeArtwork } from "./useRealtimeArtwork";
 export function useArtwork() {
   const [canvas, setCanvas] = useState<CanvasRecord | null>(null);
   const [strokes, setStrokes] = useState<PersistedStroke[]>([]);
@@ -26,6 +23,23 @@ export function useArtwork() {
   const [pending, setPending] = useState<Candidate | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  const [store] = useState(
+    () =>
+      new ArtworkStore(
+        (after, resetVersion) =>
+          api<ArtworkPage>(
+            `/api/canvases/${DEFAULT_SLUG}?after=${after}&resetVersion=${resetVersion}`,
+            { signal: AbortSignal.timeout(10000) },
+          ),
+        (current) => {
+          setCanvas(current.canvas);
+          setStrokes(current.strokes);
+          setNext(current.next);
+        },
+      ),
+  );
+  const reconcile = useCallback(() => store.load(false, true), [store]);
+  const liveStatus = useRealtimeArtwork(canvas?.id, reconcile);
   const refreshUser = useCallback(async () => {
     try {
       const data = await api<{
@@ -46,33 +60,22 @@ export function useArtwork() {
       return null;
     }
   }, []);
-  const load = useCallback(async (after = 0) => {
-    setLoading(true);
-    setLoadError("");
-    try {
-      const data = await api<Page>(
-        `/api/canvases/${DEFAULT_SLUG}?after=${after}`,
-      );
-      setCanvas(data.canvas);
-      setStrokes((previous) =>
-        after
-          ? [
-              ...previous,
-              ...data.strokes.filter(
-                (s) => !previous.some((p) => p.id === s.id),
-              ),
-            ]
-          : data.strokes,
-      );
-      setNext(data.next);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : "Could not load artwork.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (after = 0) => {
+      setLoading(true);
+      setLoadError("");
+      try {
+        await store.load(after === 0);
+      } catch (error) {
+        setLoadError(
+          error instanceof Error ? error.message : "Could not load artwork.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [store],
+  );
   useEffect(() => {
     const task = window.setTimeout(() => {
       void load();
@@ -80,34 +83,37 @@ export function useArtwork() {
     }, 0);
     return () => window.clearTimeout(task);
   }, [load, refreshUser]);
-  const save = useCallback(async (candidate: Candidate) => {
-    if (savingRef.current) throw new Error("A stroke is already being saved.");
-    savingRef.current = true;
-    setSaving(true);
-    setPending(candidate);
-    try {
-      const data = await api<{ stroke: PersistedStroke }>(
-        `/api/canvases/${DEFAULT_SLUG}/strokes`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(candidate),
-        },
-      );
-      setStrokes((previous) =>
-        previous.some((s) => s.id === data.stroke.id)
-          ? previous
-          : [...previous, data.stroke],
-      );
-      setPending(null);
-      return data.stroke;
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  }, []);
+  const save = useCallback(
+    async (candidate: Candidate) => {
+      if (savingRef.current)
+        throw new Error("A stroke is already being saved.");
+      savingRef.current = true;
+      setSaving(true);
+      setPending(candidate);
+      const submissionEpoch = store.epoch;
+      try {
+        const data = await api<{ stroke: PersistedStroke }>(
+          `/api/canvases/${DEFAULT_SLUG}/strokes`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(candidate),
+          },
+        );
+        await store.confirm(data.stroke, submissionEpoch);
+        setPending(null);
+        return data.stroke;
+      } finally {
+        savingRef.current = false;
+        setSaving(false);
+      }
+    },
+    [store],
+  );
   return {
     canvas,
+    liveStatus,
+    atCapacity: strokes.length >= API_LIMITS.maxLoadedStrokes,
     strokes,
     user,
     loading,
@@ -127,6 +133,7 @@ export function useArtwork() {
       !loading &&
       !loadError &&
       next === null &&
+      strokes.length < API_LIMITS.maxLoadedStrokes &&
       !pending,
     canLoadMore: next !== null && strokes.length < API_LIMITS.maxLoadedStrokes,
   };

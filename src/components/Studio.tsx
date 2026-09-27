@@ -30,7 +30,10 @@ export default function Studio({ notice = "" }: { notice?: string }) {
   const [authNotice, setAuthNotice] = useState(notice);
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.has("confirmed") || url.searchParams.has("auth_error")) {
+    if (
+      url.searchParams.has("confirmed") ||
+      url.searchParams.has("auth_error")
+    ) {
       url.searchParams.delete("confirmed");
       url.searchParams.delete("auth_error");
       // Replace the consumed result without a server navigation or history entry.
@@ -163,6 +166,9 @@ export default function Studio({ notice = "" }: { notice?: string }) {
         <div className="local-note">
           <span className="dot" /> A space to experiment
           <small>Account-based artwork · Stored as vectors</small>
+          <small role="status" data-testid="live-status">
+            {artwork.liveStatus}
+          </small>
         </div>
       </section>
       {authNotice && (
@@ -173,13 +179,16 @@ export default function Studio({ notice = "" }: { notice?: string }) {
       {(artwork.loading ||
         artwork.loadError ||
         artwork.authError ||
-        artwork.next !== null) && (
+        artwork.next !== null ||
+        artwork.atCapacity) && (
         <div className="artwork-notice" role="status">
           {artwork.loading
             ? "Loading saved artwork…"
             : artwork.loadError ||
               artwork.authError ||
-              `Showing ${strokes.length} saved strokes. More artwork is available; load it before drawing.`}
+              (artwork.atCapacity
+                ? `Showing ${strokes.length} saved strokes.`
+                : `Showing ${strokes.length} saved strokes. More artwork is available; load it before drawing.`)}
           {!artwork.loading && artwork.loadError && (
             <button onClick={() => void artwork.load()}>Retry artwork</button>
           )}
@@ -188,7 +197,7 @@ export default function Studio({ notice = "" }: { notice?: string }) {
               Load more artwork
             </button>
           )}
-          {!artwork.canLoadMore && artwork.next !== null && (
+          {artwork.atCapacity && (
             <p>
               This prototype has reached its vector viewing limit. Larger
               canvases need the later tiled renderer.

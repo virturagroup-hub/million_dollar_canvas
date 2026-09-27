@@ -7,7 +7,11 @@ const auth = vi.hoisted(() => ({
   signOut: vi.fn(),
   from: vi.fn(),
 }));
-const db = vi.hoisted(() => ({ canvas: vi.fn(), save: vi.fn() }));
+const db = vi.hoisted(() => ({
+  canvas: vi.fn(),
+  save: vi.fn(),
+  page: vi.fn(),
+}));
 vi.mock("@/lib/supabase/server", () => ({
   serverClient: async () => ({ auth, from: auth.from }),
 }));
@@ -17,6 +21,7 @@ vi.mock("@/lib/supabase/config", () => ({
 }));
 import { POST as strokePost } from "../app/api/canvases/[slug]/strokes/route";
 import { GET as authGet, POST as authPost } from "../app/api/auth/route";
+import { GET as artworkGet } from "../app/api/canvases/[slug]/route";
 const canvas = {
   id: "11111111-1111-4111-8111-111111111111",
   width: 4000,
@@ -136,3 +141,38 @@ it("sign-in and sign-out use provider session operations", async () => {
   expect((await authPost(request({ action: "signout" }))).status).toBe(200);
   expect(auth.signOut).toHaveBeenCalledOnce();
 });
+it("public reconciliation accepts bounded cursors and passes the epoch to canonical reads", async () => {
+  db.page.mockResolvedValue({
+    strokes: [],
+    next: null,
+    reset: true,
+    resetVersion: 9,
+  });
+  const response = await artworkGet(
+    new Request(
+      "http://localhost/api/canvases/open-studio?after=24&resetVersion=8",
+    ),
+    {
+      params: Promise.resolve({ slug: "open-studio" }),
+    },
+  );
+  expect(response.status).toBe(200);
+  expect(db.page).toHaveBeenCalledWith(canvas.id, 24, 8);
+  expect(await response.json()).toMatchObject({ reset: true, resetVersion: 9 });
+  expect(response.headers.get("Cache-Control")).toContain("no-store");
+});
+it.each(["-1", "NaN", "10000000000000000"])(
+  "rejects invalid reconciliation epoch %s",
+  async (epoch) => {
+    const response = await artworkGet(
+      new Request(
+        `http://localhost/api/canvases/open-studio?resetVersion=${epoch}`,
+      ),
+      {
+        params: Promise.resolve({ slug: "open-studio" }),
+      },
+    );
+    expect(response.status).toBe(400);
+    expect(db.page).not.toHaveBeenCalled();
+  },
+);

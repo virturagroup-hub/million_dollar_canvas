@@ -101,13 +101,26 @@ export async function repository() {
       );
     return fromRow(data as unknown as StrokeRow);
   }
-  async function page(canvasId: string, after: number) {
+  async function page(canvasId: string, after: number, resetVersion = 0) {
+    // Read the epoch BEFORE the page. A concurrent visibility change is then
+    // detected by the next reconciliation rather than silently acknowledged.
+    const { data: revision, error: revisionError } = await db
+      .from("canvas_updates")
+      .select("reset_version")
+      .eq("canvas_id", canvasId)
+      .single();
+    if (revisionError || !revision)
+      throw new RequestError(
+        503,
+        "Could not check artwork updates. Check migrations and retry.",
+      );
+    const reset = revision.reset_version !== resetVersion;
     const { data, error } = await db
       .from("strokes")
       .select(fields)
       .eq("canvas_id", canvasId)
       .eq("stroke_visibility.status", "approved")
-      .gt("ordinal", after)
+      .gt("ordinal", reset ? 0 : after)
       .order("ordinal")
       .limit(API_LIMITS.pageSize + 1);
     if (error)
@@ -115,7 +128,12 @@ export async function repository() {
     const rows = data as unknown as StrokeRow[];
     const hasMore = rows.length > API_LIMITS.pageSize;
     const strokes = rows.slice(0, API_LIMITS.pageSize).map(fromRow);
-    return { strokes, next: hasMore ? strokes.at(-1)!.order : null };
+    return {
+      strokes,
+      next: hasMore ? strokes.at(-1)!.order : null,
+      reset,
+      resetVersion: revision.reset_version,
+    };
   }
   return { canvas, save, page } satisfies SubmissionStore & {
     page: typeof page;
