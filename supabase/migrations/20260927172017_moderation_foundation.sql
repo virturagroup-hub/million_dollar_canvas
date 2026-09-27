@@ -197,4 +197,3 @@ revoke all on function public.my_role(),public.submission_receipt(uuid),public.r
 grant execute on function private.my_role(),private.submission_receipt(uuid),private.report_stroke(uuid,text,text),private.moderation(text,jsonb) to authenticated;
 grant execute on function public.my_role(),public.submission_receipt(uuid),public.report_stroke(uuid,text,text),public.moderation(text,jsonb) to authenticated;
 commit;
-
