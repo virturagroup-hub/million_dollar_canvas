@@ -1,0 +1,51 @@
+{
+  "name": "million_dollar_canvas",
+  "version": "1.0.0",
+  "description": "Persistent collaborative canvas with Supabase authentication and canonical vector strokes",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:integration": "vitest run src/server/database.integration.test.ts src/server/routes.test.ts",
+    "test:e2e:hosted": "playwright test --config playwright.hosted.config.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/virturagroup-hub/million_dollar_canvas.git"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/virturagroup-hub/million_dollar_canvas/issues"
+  },
+  "homepage": "https://github.com/virturagroup-hub/million_dollar_canvas#readme",
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
+    "next": "^16.3.6",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.6",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.1.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22.14.0"
+  }
+}
