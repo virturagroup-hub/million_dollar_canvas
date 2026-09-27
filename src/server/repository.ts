@@ -49,9 +49,9 @@ export async function repository() {
     column = "id",
   ): Promise<CanvasRecord | null> {
     const { data, error } = await db
-      .from("canvases")
+      .from("canvas_catalog")
       .select(
-        "id,slug,title,description,width,height,status,opens_at,closes_at",
+        "id,slug,title,description,width,height,status,canvas_type,stroke_limit,credit_cost,display_order,approved_count,opens_at,closes_at",
       )
       .eq(column, value)
       .neq("status", "draft")
@@ -63,6 +63,44 @@ export async function repository() {
       );
     return data;
   }
+  async function catalog(section: "current" | "archive", offset: number) {
+    let query = db
+      .from("canvas_catalog")
+      .select("*")
+      .in("status", section === "current" ? ["open"] : ["closed", "archived"]);
+    if (section === "current") query = query.neq("canvas_type", "flagship");
+    const { data, error } = await query
+      .order("display_order")
+      .order("slug")
+      .range(offset, offset + API_LIMITS.catalogPageSize);
+    if (error)
+      throw new RequestError(
+        503,
+        "The gallery is temporarily unavailable. Please retry.",
+      );
+    let flagship: CanvasRecord | null = null;
+    if (section === "current" && offset === 0) {
+      const result = await db
+        .from("canvas_catalog")
+        .select("*")
+        .eq("canvas_type", "flagship")
+        .maybeSingle();
+      if (result.error)
+        throw new RequestError(
+          503,
+          "The featured canvas is temporarily unavailable.",
+        );
+      flagship = result.data;
+    }
+    return {
+      flagship,
+      canvases: data.slice(0, API_LIMITS.catalogPageSize) as CanvasRecord[],
+      next:
+        data.length > API_LIMITS.catalogPageSize
+          ? offset + API_LIMITS.catalogPageSize
+          : null,
+    };
+  }
   async function save(userId: string, c: CanvasRecord, candidate: Candidate) {
     const { data: id, error } = await db.rpc("submit_stroke", {
       p_canvas_id: c.id,
@@ -73,6 +111,11 @@ export async function repository() {
       p_duration: candidate.duration,
     });
     if (error) {
+      if (error.message.includes("stroke limit"))
+        throw new RequestError(
+          409,
+          "This canvas has reached its stroke limit.",
+        );
       if (error.message.includes("rate limit"))
         throw new RequestError(
           429,
@@ -135,7 +178,8 @@ export async function repository() {
       resetVersion: revision.reset_version,
     };
   }
-  return { canvas, save, page } satisfies SubmissionStore & {
+  return { canvas, save, page, catalog } satisfies SubmissionStore & {
     page: typeof page;
+    catalog: typeof catalog;
   };
 }

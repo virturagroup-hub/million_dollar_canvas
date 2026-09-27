@@ -25,7 +25,10 @@ test("hosted Supabase sends a saved stroke to an independent anonymous viewer", 
           notifications++;
       }),
     );
-    await Promise.all([page.goto("/"), viewer.goto("/")]);
+    await Promise.all([
+      page.goto("/canvas/open-studio"),
+      viewer.goto("/canvas/open-studio"),
+    ]);
     await expect(viewer.getByTestId("live-status")).toHaveText("Live", {
       timeout: 15000,
     });

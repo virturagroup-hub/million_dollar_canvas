@@ -1,12 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { BrowserContext, WebSocketRoute } from "@playwright/test";
-import type { Candidate, PersistedStroke } from "../../src/domain/canvas";
+import type {
+  Candidate,
+  PersistedStroke,
+  CanvasRecord,
+} from "../../src/domain/canvas";
 import { bounds } from "../../src/drawing/model";
 import { mockArtwork, testCanvas } from "./artwork";
 
 // Test-only HTTP + Phoenix v2 websocket interception. Uses the real Supabase
 // browser client/decoder; does not claim to exercise a hosted database or RLS.
 export function realtimeFixture() {
+  const canvases = new Map([[testCanvas.slug, testCanvas]]);
   let strokes: PersistedStroke[] = [];
   let epoch = 0;
   let ordinal = 0;
@@ -45,13 +50,13 @@ export function realtimeFixture() {
         ]),
       );
   }
-  function add(candidate?: Candidate) {
+  function add(candidate?: Candidate, canvasId = testCanvas.id) {
     ordinal++;
     const points = candidate?.points ?? [{ x: 2010, y: 1500 }];
     const stroke: PersistedStroke = {
       id: candidate?.requestId ?? randomUUID(),
       order: ordinal,
-      canvasId: testCanvas.id,
+      canvasId,
       points,
       width: candidate?.width ?? 12,
       color: candidate?.color ?? "#AA2200",
@@ -79,6 +84,9 @@ export function realtimeFixture() {
     },
     add,
     notify,
+    register(canvas: CanvasRecord) {
+      canvases.set(canvas.slug, canvas);
+    },
     onNextJoin(callback: () => void) {
       nextJoin = callback;
     },
@@ -139,14 +147,37 @@ export function realtimeFixture() {
             );
             if (event === "phx_leave")
               for (const c of sockets)
-                if (c.socket === socket) sockets.delete(c);
+                if (c.socket === socket && c.topic === topic) sockets.delete(c);
           }
         });
         socket.onClose(() => {
           for (const c of sockets) if (c.socket === socket) sockets.delete(c);
         });
       });
-      await context.route("**/api/canvases/open-studio?*", async (route) => {
+      await context.route("**/api/canvases?*", async (route) => {
+        const params = new URL(route.request().url()).searchParams;
+        const archive = params.get("section") === "archive";
+        const offset = Number(params.get("offset") ?? 0);
+        const all = [...canvases.values()]
+          .filter((c) => c.status !== "draft")
+          .map((c) => ({
+            ...c,
+            approved_count: strokes.filter((s) => s.canvasId === c.id).length,
+          }));
+        const records = all.filter((c) =>
+          archive
+            ? ["closed", "archived"].includes(c.status)
+            : c.status === "open" && c.canvas_type !== "flagship",
+        );
+        await route.fulfill({
+          json: {
+            flagship: all.find((c) => c.canvas_type === "flagship") ?? null,
+            canvases: records.slice(offset, offset + 4),
+            next: records.length > offset + 4 ? offset + 4 : null,
+          },
+        });
+      });
+      await context.route("**/api/canvases/*?*", async (route) => {
         reads++;
         if (failReads) {
           await route.fulfill({
@@ -156,13 +187,28 @@ export function realtimeFixture() {
           return;
         }
         const params = new URL(route.request().url()).searchParams;
+        const slug = new URL(route.request().url()).pathname.split("/").at(-1)!;
+        const canvas = canvases.get(slug);
+        if (!canvas || canvas.status === "draft") {
+          await route.fulfill({
+            status: 404,
+            json: { error: "Canvas not found." },
+          });
+          return;
+        }
         const reset = Number(params.get("resetVersion") ?? 0) !== epoch;
         const after = reset ? 0 : Number(params.get("after") ?? 0);
-        const remaining = strokes.filter((s) => s.order > after);
+        const remaining = strokes.filter(
+          (s) => s.canvasId === canvas.id && s.order > after,
+        );
         const page = remaining.slice(0, 100);
         await route.fulfill({
           json: {
-            canvas: testCanvas,
+            canvas: {
+              ...canvas,
+              approved_count: strokes.filter((s) => s.canvasId === canvas.id)
+                .length,
+            },
             strokes: page,
             next: remaining.length > 100 ? page.at(-1)!.order : null,
             reset,
@@ -170,18 +216,18 @@ export function realtimeFixture() {
           },
         });
       });
-      await context.route(
-        "**/api/canvases/open-studio/strokes",
-        async (route) => {
-          const candidate = route.request().postDataJSON();
-          const stroke =
-            strokes.find((s) => s.id === candidate.requestId) ?? add(candidate);
-          notify();
-          if (holdSaves)
-            await new Promise<void>((resolve) => release.push(resolve));
-          await route.fulfill({ status: 201, json: { stroke } });
-        },
-      );
+      await context.route("**/api/canvases/*/strokes", async (route) => {
+        const candidate = route.request().postDataJSON();
+        const slug = new URL(route.request().url()).pathname.split("/").at(-2)!;
+        const canvas = canvases.get(slug)!;
+        const stroke =
+          strokes.find((s) => s.id === candidate.requestId) ??
+          add(candidate, canvas.id);
+        notify(canvas.id);
+        if (holdSaves)
+          await new Promise<void>((resolve) => release.push(resolve));
+        await route.fulfill({ status: 201, json: { stroke } });
+      });
     },
   };
 }

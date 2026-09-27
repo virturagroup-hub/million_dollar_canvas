@@ -9,6 +9,11 @@ export const testCanvas: CanvasRecord = {
   width: 4000,
   height: 3000,
   status: "open",
+  canvas_type: "community",
+  stroke_limit: null,
+  credit_cost: null,
+  display_order: 0,
+  approved_count: 0,
   opens_at: null,
   closes_at: null,
 };
@@ -23,10 +28,15 @@ export async function mockArtwork(
   } = {},
 ) {
   if (!options.realtime) {
-    await context.routeWebSocket("**/realtime/v1/websocket**", (socket) => socket.close());
+    await context.routeWebSocket("**/realtime/v1/websocket**", (socket) =>
+      socket.close(),
+    );
   }
   let signedIn = options.signedIn ?? true;
   let strokes = options.initial ?? [];
+  await context.route("**/api/canvases?*", (route) =>
+    route.fulfill({ json: { flagship: null, canvases: [], next: null } }),
+  );
   await context.route("**/api/auth", async (route) => {
     if (route.request().method() === "POST") {
       const body = route.request().postDataJSON();

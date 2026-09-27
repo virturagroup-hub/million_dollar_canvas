@@ -26,7 +26,7 @@ async function line(page: Page) {
 }
 test.beforeEach(async ({ page, context }) => {
   await mockArtwork(context);
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
 });
 test("duration limit and actual pointer capture loss discard unfinished strokes", async ({
   page,
@@ -178,7 +178,7 @@ test("mobile controls fit and a touch gesture saves one stroke", async ({
   });
   await mockArtwork(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await arm(page);
   await page
     .getByLabel("Drawing canvas", { exact: true })

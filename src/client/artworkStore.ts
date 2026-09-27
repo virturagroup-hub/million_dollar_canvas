@@ -41,12 +41,13 @@ export class ArtworkStore {
   constructor(
     private read: (after: number, resetVersion: number) => Promise<ArtworkPage>,
     private publish: (store: ArtworkStore) => void,
+    private limit: number = API_LIMITS.maxLoadedStrokes,
   ) {}
   add(stroke: PersistedStroke) {
     if (!this.canvas || stroke.canvasId !== this.canvas.id) return;
     this.strokes = mergeStrokes(this.strokes, [stroke], this.canvas.id);
-    if (this.strokes.length > API_LIMITS.maxLoadedStrokes) {
-      this.strokes = this.strokes.slice(0, API_LIMITS.maxLoadedStrokes);
+    if (this.strokes.length > this.limit) {
+      this.strokes = this.strokes.slice(0, this.limit);
       this.next = this.cursor;
     }
     this.publish(this);
@@ -65,7 +66,7 @@ export class ArtworkStore {
       }
       for (
         let pages = 0;
-        pages < API_LIMITS.maxLoadedStrokes / API_LIMITS.pageSize;
+        pages < Math.ceil(this.limit / API_LIMITS.pageSize);
         pages++
       ) {
         const after = this.cursor;
@@ -80,20 +81,15 @@ export class ArtworkStore {
           data.strokes,
           data.canvas.id,
         );
-        this.strokes = merged.slice(0, API_LIMITS.maxLoadedStrokes);
+        this.strokes = merged.slice(0, this.limit);
         this.cursor = Math.min(
           data.strokes.at(-1)?.order ?? (replace ? 0 : after),
           this.strokes.at(-1)?.order ?? 0,
         );
-        this.next =
-          merged.length > API_LIMITS.maxLoadedStrokes ? this.cursor : data.next;
+        this.next = merged.length > this.limit ? this.cursor : data.next;
         this.publish(this);
         restart = false;
-        if (
-          !drain ||
-          data.next === null ||
-          this.strokes.length >= API_LIMITS.maxLoadedStrokes
-        )
+        if (!drain || data.next === null || this.strokes.length >= this.limit)
           break;
       }
     });

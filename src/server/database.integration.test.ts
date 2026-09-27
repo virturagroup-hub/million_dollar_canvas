@@ -30,6 +30,12 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20260927054754_home_dashboard_multicanvas.sql",
+      "utf8",
+    ),
+  );
 }, 30000);
 afterAll(async () => {
   await db.close();
@@ -190,16 +196,17 @@ it("publishes only canvas rendering metadata, atomically with approved artwork",
   await save();
   await db.exec("set local role anon");
   const updates = await db.query<Record<string, unknown>>(
-    "select * from public.canvas_updates",
+    "select * from public.canvas_updates where canvas_id='11111111-1111-4111-8111-111111111111'",
   );
   expect(updates.rows).toHaveLength(1);
   expect(Object.keys(updates.rows[0]).sort()).toEqual([
+    "approved_count",
     "canvas_id",
     "last_ordinal",
     "reset_version",
     "version",
   ]);
-  expect(Number(updates.rows[0].version)).toBe(1);
+  expect(Number(updates.rows[0].version)).toBe(2);
   const publication = await db.query(
     "select tablename from pg_publication_tables where pubname='supabase_realtime'",
   );
@@ -212,17 +219,17 @@ it("visibility changes invalidate earlier cursors without publishing hidden reco
   );
   let revision = (
     await db.query<Record<string, unknown>>(
-      "select * from public.canvas_updates",
+      "select * from public.canvas_updates where canvas_id='11111111-1111-4111-8111-111111111111'",
     )
   ).rows[0];
-  expect(Number(revision.reset_version)).toBe(2);
+  expect(Number(revision.reset_version)).toBe(3);
   await db.exec("update public.stroke_visibility set status='rejected'");
   revision = (
     await db.query<Record<string, unknown>>(
-      "select * from public.canvas_updates",
+      "select * from public.canvas_updates where canvas_id='11111111-1111-4111-8111-111111111111'",
     )
   ).rows[0];
-  expect(Number(revision.version)).toBe(2); // Hidden-to-hidden changes emit nothing.
+  expect(Number(revision.version)).toBe(3); // Hidden-to-hidden changes emit nothing.
   await db.exec("set local role anon");
   expect((await db.query("select * from public.strokes")).rows).toHaveLength(0);
 });

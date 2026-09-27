@@ -8,7 +8,7 @@ test("confirmed Supabase user saves a stroke that survives reload", async ({
     !process.env.E2E_EMAIL || !process.env.E2E_PASSWORD,
     "Provide credentials for a confirmed test account in a disposable development project.",
   );
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_EMAIL!);
   await page
