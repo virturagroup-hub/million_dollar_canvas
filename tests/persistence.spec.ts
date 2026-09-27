@@ -19,7 +19,7 @@ test("sidebar has deliberate spacing at desktop and narrow widths", async ({
   context,
 }) => {
   await mockArtwork(context);
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   for (const width of [1280, 850, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     const button = page.getByRole("button", {
@@ -45,9 +45,11 @@ test("loupe shows real neighboring pixels, selects exact color, cancels and clea
   context,
 }) => {
   await mockArtwork(context);
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await dot(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page.getByLabel("Stroke color", { exact: true }).fill("#123456");
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
@@ -117,7 +119,7 @@ test("public viewing, sign-in return to drawing, and sign-out", async ({
   context,
 }) => {
   await mockArtwork(context, { signedIn: false });
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await expect(surface(page)).toBeVisible();
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -140,21 +142,27 @@ test("unconfirmed saves never appear official; retry uses the same candidate", a
 }) => {
   const options = { rejectSave: true };
   await mockArtwork(context, options);
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await dot(page);
   await expect(page.locator(".error[role=alert]")).toHaveText(
     "Save failed for test.",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
   await expect(
     page.getByRole("button", { name: "+ Add Stroke", exact: true }),
   ).toBeDisabled();
   options.rejectSave = false;
   await page.getByRole("button", { name: "Retry same stroke" }).click();
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await expect(surface(page)).toHaveAttribute("data-phase", "completed");
   await page.reload();
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await page.getByText("Recent contributors").click();
   await expect(page.locator(".attribution")).toContainText("Test Artist");
 });
@@ -172,7 +180,7 @@ test("configuration/load failures stay explicit and do not imply an empty loaded
       },
     }),
   );
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await expect(
     page.getByText("Persistence is not configured.", { exact: false }),
   ).toBeVisible();

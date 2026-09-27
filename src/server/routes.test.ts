@@ -6,14 +6,16 @@ const auth = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
 }));
 const db = vi.hoisted(() => ({
   canvas: vi.fn(),
   save: vi.fn(),
   page: vi.fn(),
+  catalog: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  serverClient: async () => ({ auth, from: auth.from }),
+  serverClient: async () => ({ auth, from: auth.from, rpc: auth.rpc }),
 }));
 vi.mock("@/server/repository", () => ({ repository: async () => db }));
 vi.mock("@/lib/supabase/config", () => ({
@@ -22,6 +24,7 @@ vi.mock("@/lib/supabase/config", () => ({
 import { POST as strokePost } from "../app/api/canvases/[slug]/strokes/route";
 import { GET as authGet, POST as authPost } from "../app/api/auth/route";
 import { GET as artworkGet } from "../app/api/canvases/[slug]/route";
+import { GET as catalogGet } from "../app/api/canvases/route";
 const canvas = {
   id: "11111111-1111-4111-8111-111111111111",
   width: 4000,
@@ -45,6 +48,7 @@ const request = (body: unknown) =>
   });
 beforeEach(() => {
   vi.resetAllMocks();
+  auth.rpc.mockResolvedValue({ data: "user", error: null });
   auth.getUser.mockResolvedValue({
     data: { user: { id: "verified-id", email: "private@example.test" } },
     error: null,
@@ -60,6 +64,25 @@ it("route verifies Auth identity and does not use client identity", async () => 
   expect(auth.getUser).toHaveBeenCalledOnce();
   expect(db.save.mock.calls[0][0]).toBe("verified-id");
 });
+it("public catalog uses bounded backend pages without requiring authentication", async () => {
+  db.catalog.mockResolvedValue({ flagship: null, canvases: [], next: null });
+  const response = await catalogGet(
+    new Request("http://localhost/api/canvases?section=archive&offset=4"),
+  );
+  expect(response.status).toBe(200);
+  expect(db.catalog).toHaveBeenCalledWith("archive", 4);
+  expect(auth.getUser).not.toHaveBeenCalled();
+});
+it.each(["section=draft", "offset=-1", "offset=100000"])(
+  "catalog rejects unbounded/private request %s",
+  async (query) => {
+    expect(
+      (await catalogGet(new Request(`http://localhost/api/canvases?${query}`)))
+        .status,
+    ).toBe(400);
+    expect(db.catalog).not.toHaveBeenCalled();
+  },
+);
 it("route rejects unauthenticated and spoofed submissions", async () => {
   auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
   expect(
@@ -94,7 +117,7 @@ it("public session response projects only public fields", async () => {
   auth.from.mockReturnValue({ select: () => ({ eq: () => ({ single }) }) });
   const response = await authGet();
   expect(await response.json()).toEqual({
-    user: { id: "verified-id", displayName: "Artist" },
+    user: { id: "verified-id", displayName: "Artist", role: "user" },
     configured: true,
   });
 });

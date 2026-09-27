@@ -26,7 +26,7 @@ async function line(page: Page) {
 }
 test.beforeEach(async ({ page, context }) => {
   await mockArtwork(context);
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
 });
 test("duration limit and actual pointer capture loss discard unfinished strokes", async ({
   page,
@@ -47,7 +47,9 @@ test("duration limit and actual pointer capture loss discard unfinished strokes"
   await expect(page.locator(".error[role=alert]")).toContainText(
     "15-second limit",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page
     .getByRole("button", { name: "Lock View & Prepare Stroke" })
@@ -64,7 +66,9 @@ test("duration limit and actual pointer capture loss discard unfinished strokes"
   await expect(page.locator(".error[role=alert]")).toContainText(
     "capture lost",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
 });
 test("one deliberate gesture, locked navigation, color sampling, and persistent reload", async ({
   page,
@@ -83,16 +87,22 @@ test("one deliberate gesture, locked navigation, color sampling, and persistent 
     page.getByRole("button", { name: "Zoom in", exact: true }),
   ).toBeDisabled();
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
   await expect(
     page.getByLabel("Drawing canvas", { exact: true }),
   ).toHaveAttribute("data-phase", "armed", {
     timeout: 6000,
   });
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page.getByLabel("Use #AB1234").click();
   await page.getByRole("button", { name: "Reset view" }).click();
@@ -106,7 +116,9 @@ test("one deliberate gesture, locked navigation, color sampling, and persistent 
     "#AB1234",
   );
   await page.reload();
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
 });
 test("cancellation, invalid color, and lost pointer never save a stroke", async ({
   page,
@@ -122,7 +134,9 @@ test("cancellation, invalid color, and lost pointer never save a stroke", async 
   await page.getByRole("button", { name: "Cancel stroke" }).click();
   await page.waitForTimeout(3200);
   await line(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
   await arm(page);
   const box = (await page
     .getByLabel("Drawing canvas", { exact: true })
@@ -136,7 +150,9 @@ test("cancellation, invalid color, and lost pointer never save a stroke", async 
   await expect(page.locator(".error[role=alert]")).toContainText(
     "No stroke was saved",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
 });
 test("artwork stays aligned after zoom, pan, resize and high-DPI redraw", async ({
   page,
@@ -166,7 +182,9 @@ test("artwork stays aligned after zoom, pan, resize and high-DPI redraw", async 
       });
   await expect.poll(async () => (await readPixel()).rgb).toEqual([35, 92, 75]);
   expect((await readPixel()).ratio).toBeCloseTo(2);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
 });
 test("mobile controls fit and a touch gesture saves one stroke", async ({
   browser,
@@ -178,7 +196,7 @@ test("mobile controls fit and a touch gesture saves one stroke", async ({
   });
   await mockArtwork(context);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await arm(page);
   await page
     .getByLabel("Drawing canvas", { exact: true })
@@ -187,7 +205,9 @@ test("mobile controls fit and a touch gesture saves one stroke", async ({
     .getByLabel("Drawing canvas", { exact: true })
     .boundingBox())!;
   await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

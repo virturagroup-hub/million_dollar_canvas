@@ -19,8 +19,11 @@ export async function GET() {
         503,
         "Your profile is unavailable. Check database setup.",
       );
+    const { data: role, error: roleError } = await db.rpc("my_role");
+    if (roleError)
+      throw new RequestError(503, "Could not check account permissions.");
     return json({
-      user: { id: profile.id, displayName: profile.display_name },
+      user: { id: profile.id, displayName: profile.display_name, role },
       configured: true,
     });
   } catch (error) {

@@ -1,14 +1,16 @@
+import { approveTestStroke, hostedCredentials } from "./moderator";
 import { test, expect } from "@playwright/test";
 // Explicit opt-in against a configured running app and an already confirmed test
 // account. This leaves one canonical stroke; never run against production artwork.
 test("confirmed Supabase user saves a stroke that survives reload", async ({
   page,
+  browser,
 }) => {
   test.skip(
-    !process.env.E2E_EMAIL || !process.env.E2E_PASSWORD,
-    "Provide credentials for a confirmed test account in a disposable development project.",
+    !hostedCredentials,
+    "Provide artist and moderator credentials for a disposable development project.",
   );
-  await page.goto("/");
+  await page.goto("/canvas/open-studio");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByLabel("Email", { exact: true }).fill(process.env.E2E_EMAIL!);
   await page
@@ -32,13 +34,22 @@ test("confirmed Supabase user saves a stroke that survives reload", async ({
     timeout: 6000,
   });
   const box = (await canvas.boundingBox())!;
+  const receiptPromise = page.waitForResponse(
+    (r) => r.url().endsWith("/strokes") && r.request().method() === "POST",
+  );
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const receipt = await (await receiptPromise).json();
+  expect(receipt.stroke.status).toBe("pending");
+  await expect(
+    page.getByText("Stroke submitted for review.", { exact: true }),
+  ).toBeVisible();
+  await approveTestStroke(browser, receipt.stroke.id);
   await expect(page.getByTestId("stroke-count")).toHaveText(
-    `${before + 1} saved ${before === 0 ? "stroke" : "strokes"}`,
+    `${before + 1} approved ${before === 0 ? "stroke" : "strokes"}`,
   );
   await page.reload();
   await expect(page.getByTestId("stroke-count")).toHaveText(
-    `${before + 1} saved ${before === 0 ? "stroke" : "strokes"}`,
+    `${before + 1} approved ${before === 0 ? "stroke" : "strokes"}`,
   );
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
 });

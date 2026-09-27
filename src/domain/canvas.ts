@@ -7,10 +7,19 @@ export type CanvasRecord = {
   width: number;
   height: number;
   status: "draft" | "open" | "closed" | "archived";
+  canvas_type: "flagship" | "community" | "special";
+  stroke_limit: number | null;
+  credit_cost: number | null;
+  display_order: number;
+  approved_count: number;
   opens_at: string | null;
   closes_at: string | null;
 };
-export type PublicProfile = { id: string; displayName: string };
+export type PublicProfile = {
+  id: string;
+  displayName: string;
+  role?: "user" | "moderator" | "admin";
+};
 export type PersistedStroke = Stroke & {
   canvasId: string;
   order: number;
@@ -25,8 +34,9 @@ export const API_LIMITS = {
   payloadBytes: 160000,
   pageSize: 100,
   maxLoadedStrokes: 2000,
+  previewStrokes: 500,
+  catalogPageSize: 4,
 } as const;
-export const DEFAULT_SLUG = "open-studio";
 export function displayName(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const name = value.trim();

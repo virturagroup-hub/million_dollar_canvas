@@ -37,7 +37,7 @@ export function useStudio({
 }: {
   strokes: Stroke[];
   dimensions: { width: number; height: number };
-  persist: (candidate: Candidate) => Promise<Stroke>;
+  persist: (candidate: Candidate) => Promise<unknown>;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const phaseRef = useRef<Phase>("idle");

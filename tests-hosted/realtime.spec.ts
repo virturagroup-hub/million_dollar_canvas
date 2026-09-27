@@ -1,12 +1,13 @@
+import { approveTestStroke, hostedCredentials } from "./moderator";
 import { test, expect } from "@playwright/test";
 
-test("hosted Supabase sends a saved stroke to an independent anonymous viewer", async ({
+test("hosted Supabase sends a approved stroke to an independent anonymous viewer", async ({
   browser,
   page,
 }) => {
   test.skip(
-    !process.env.E2E_EMAIL || !process.env.E2E_PASSWORD,
-    "Requires both migrations and a confirmed development account; leaves one permanent test dot.",
+    !hostedCredentials,
+    "Requires all four migrations and confirmed artist/moderator development accounts; leaves one permanent test dot.",
   );
   const other = await browser.newContext({
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000",
@@ -25,7 +26,10 @@ test("hosted Supabase sends a saved stroke to an independent anonymous viewer", 
           notifications++;
       }),
     );
-    await Promise.all([page.goto("/"), viewer.goto("/")]);
+    await Promise.all([
+      page.goto("/canvas/open-studio"),
+      viewer.goto("/canvas/open-studio"),
+    ]);
     await expect(viewer.getByTestId("live-status")).toHaveText("Live", {
       timeout: 15000,
     });
@@ -56,11 +60,20 @@ test("hosted Supabase sends a saved stroke to an independent anonymous viewer", 
       timeout: 6000,
     });
     const box = (await canvas.boundingBox())!;
+    const receiptPromise = page.waitForResponse(
+      (r) => r.url().endsWith("/strokes") && r.request().method() === "POST",
+    );
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const receipt = await (await receiptPromise).json();
+    expect(receipt.stroke.status).toBe("pending");
+    await expect(
+      page.getByText("Stroke submitted for review.", { exact: true }),
+    ).toBeVisible();
+    await approveTestStroke(browser, receipt.stroke.id);
     await expect
       .poll(() => notifications, { timeout: 10000 })
       .toBeGreaterThan(beforeNotifications);
-    const count = `${before + 1} saved ${before === 0 ? "stroke" : "strokes"}`;
+    const count = `${before + 1} approved ${before === 0 ? "stroke" : "strokes"}`;
     await expect(viewer.getByTestId("stroke-count")).toHaveText(count, {
       timeout: 10000,
     });

@@ -9,9 +9,16 @@ export const testCanvas: CanvasRecord = {
   width: 4000,
   height: 3000,
   status: "open",
+  canvas_type: "community",
+  stroke_limit: null,
+  credit_cost: null,
+  display_order: 0,
+  approved_count: 0,
   opens_at: null,
   closes_at: null,
 };
+// Existing renderer tests simulate an immediate separate moderator approval.
+// The moderation suite overrides submission to verify the pending interval.
 // Only browser-test network interception. No mock/test backdoor ships in the app.
 export async function mockArtwork(
   context: BrowserContext,
@@ -23,10 +30,15 @@ export async function mockArtwork(
   } = {},
 ) {
   if (!options.realtime) {
-    await context.routeWebSocket("**/realtime/v1/websocket**", (socket) => socket.close());
+    await context.routeWebSocket("**/realtime/v1/websocket**", (socket) =>
+      socket.close(),
+    );
   }
   let signedIn = options.signedIn ?? true;
   let strokes = options.initial ?? [];
+  await context.route("**/api/canvases?*", (route) =>
+    route.fulfill({ json: { flagship: null, canvases: [], next: null } }),
+  );
   await context.route("**/api/auth", async (route) => {
     if (route.request().method() === "POST") {
       const body = route.request().postDataJSON();
@@ -46,7 +58,13 @@ export async function mockArtwork(
       });
   });
   await context.route("**/api/canvases/open-studio?*", async (route) =>
-    route.fulfill({ json: { canvas: testCanvas, strokes, next: null } }),
+    route.fulfill({
+      json: {
+        canvas: { ...testCanvas, approved_count: strokes.length },
+        strokes,
+        next: null,
+      },
+    }),
   );
   await context.route("**/api/canvases/open-studio/strokes", async (route) => {
     if (options.rejectSave) {
@@ -77,6 +95,9 @@ export async function mockArtwork(
       };
       strokes = [...strokes, stroke];
     }
-    await route.fulfill({ status: 201, json: { stroke } });
+    await route.fulfill({
+      status: 201,
+      json: { stroke: { id: stroke.id, status: "approved" } },
+    });
   });
 }

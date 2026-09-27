@@ -18,6 +18,11 @@ const canvas: CanvasRecord = {
   width: 4000,
   height: 3000,
   status: "open",
+  canvas_type: "community",
+  stroke_limit: null,
+  credit_cost: null,
+  display_order: 0,
+  approved_count: 0,
   opens_at: null,
   closes_at: null,
 };
@@ -34,16 +39,7 @@ const valid: Candidate = {
 function store(c = canvas) {
   return {
     canvas: vi.fn().mockResolvedValue(c),
-    save: vi.fn().mockImplementation(async (userId, c, candidate, box) => ({
-      id: "saved",
-      canvasId: c.id,
-      ...candidate,
-      bounds: box,
-      author: { id: userId, displayName: "Artist" },
-      createdAt: "2026-09-26T00:00:00Z",
-      status: "approved",
-      order: 1,
-    })),
+    save: vi.fn().mockResolvedValue({ id: "saved", status: "pending" }),
   } as SubmissionStore;
 }
 describe("server submission trust boundary", () => {
@@ -57,10 +53,13 @@ describe("server submission trust boundary", () => {
   it("uses server identity, normalizes color and calculates bounds", async () => {
     const db = store();
     const saved = await submitStroke(db, "verified-user", canvas.id, valid);
-    expect(saved.author.id).toBe("verified-user");
-    expect(saved.color).toBe("#AB1234");
-    expect(saved.bounds).toEqual(bounds(valid.points, 6));
-    expect(JSON.parse(JSON.stringify(saved)).points).toEqual(valid.points);
+    expect(saved).toEqual({ id: "saved", status: "pending" });
+    expect(db.save).toHaveBeenCalledWith(
+      "verified-user",
+      canvas,
+      { ...valid, color: "#AB1234" },
+      bounds(valid.points, 6),
+    );
   });
   it.each(["userId", "user_id", "createdAt", "status", "bounds"])(
     "rejects spoofed server field %s",

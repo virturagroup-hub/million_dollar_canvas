@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useAuthNotice } from "@/client/useAuthNotice";
+import Navigation from "./Navigation";
 import { useArtwork } from "@/client/useArtwork";
 import { api } from "@/client/api";
 import ColorLoupe from "./ColorLoupe";
@@ -13,6 +15,7 @@ import {
   type Phase,
 } from "@/drawing/model";
 import { useStudio } from "@/drawing/useStudio";
+import StrokeReport from "./StrokeReport";
 import StrokeOptions from "./StrokeOptions";
 const guidance: Record<Phase, string> = {
   idle: "A blank canvas. A place to begin.",
@@ -22,27 +25,19 @@ const guidance: Record<Phase, string> = {
   armed: "DRAW",
   drawing: "Make your mark.",
   submitting: "Saving your stroke…",
-  completed: "One stroke. Part of something bigger.",
+  completed: "Stroke submitted for review.",
   cancelled: "Take your time. The canvas is here.",
   failed: "Let’s try that again.",
 };
-export default function Studio({ notice = "" }: { notice?: string }) {
-  const [authNotice, setAuthNotice] = useState(notice);
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    if (
-      url.searchParams.has("confirmed") ||
-      url.searchParams.has("auth_error")
-    ) {
-      url.searchParams.delete("confirmed");
-      url.searchParams.delete("auth_error");
-      // Replace the consumed result without a server navigation or history entry.
-      window.history.replaceState(window.history.state, "", url.href);
-    }
-    const timer = window.setTimeout(() => setAuthNotice(""), 7000);
-    return () => window.clearTimeout(timer);
-  }, []);
-  const artwork = useArtwork();
+export default function Studio({
+  slug,
+  notice = "",
+}: {
+  slug: string;
+  notice?: string;
+}) {
+  const [authNotice, clearAuthNotice] = useAuthNotice(notice);
+  const artwork = useArtwork(slug);
   const [authOpen, setAuthOpen] = useState(false);
   const [resumeAfterAuth, setResumeAfterAuth] = useState(false);
   const dimensions = useMemo(
@@ -93,7 +88,7 @@ export default function Studio({ notice = "" }: { notice?: string }) {
     if (!artwork.user) {
       if (!artwork.configured) {
         setError(
-          "Supabase is not configured. Follow the setup instructions in README.",
+          "Accounts are temporarily unavailable. Please try again later.",
         );
         return;
       }
@@ -131,8 +126,14 @@ export default function Studio({ notice = "" }: { notice?: string }) {
             million dollar canvas<small>ONE STROKE AT A TIME</small>
           </span>
         </Link>
+        <Navigation />
+        {artwork.user?.role && artwork.user.role !== "user" && (
+          <Link href="/moderation">Moderation</Link>
+        )}
         <div className="account">
-          <span className="badge">PERSISTENT STUDIO · MILESTONE 02</span>
+          <span className="badge">
+            {artwork.canvas?.canvas_type ?? "CANVAS"}
+          </span>
           {artwork.user ? (
             <>
               <span>Signed in as {artwork.user.displayName}</span>
@@ -158,14 +159,26 @@ export default function Studio({ notice = "" }: { notice?: string }) {
       <section className="intro">
         <div>
           <p className="eyebrow">THE BEGINNING OF SOMETHING SHARED</p>
-          <h1>Every mark matters.</h1>
+          <h1>
+            {artwork.canvas?.title ??
+              (artwork.loadError
+                ? "Canvas unavailable"
+                : "Your place on the canvas.")}
+          </h1>
           <p>
             Find your place. Make one deliberate stroke. See what comes next.
           </p>
         </div>
         <div className="local-note">
-          <span className="dot" /> A space to experiment
-          <small>Account-based artwork · Stored as vectors</small>
+          <span className="dot" /> One stroke at a time
+          <small>A shared artwork, made together</small>
+          {artwork.canvas && artwork.canvas.status !== "open" && (
+            <small>
+              {artwork.canvas.status === "archived"
+                ? "Archived artwork · Read only"
+                : "Canvas closed · Read only"}
+            </small>
+          )}
           <small role="status" data-testid="live-status">
             {artwork.liveStatus}
           </small>
@@ -182,13 +195,15 @@ export default function Studio({ notice = "" }: { notice?: string }) {
         artwork.next !== null ||
         artwork.atCapacity) && (
         <div className="artwork-notice" role="status">
-          {artwork.loading
-            ? "Loading saved artwork…"
-            : artwork.loadError ||
-              artwork.authError ||
-              (artwork.atCapacity
-                ? `Showing ${strokes.length} saved strokes.`
-                : `Showing ${strokes.length} saved strokes. More artwork is available; load it before drawing.`)}
+          <span>
+            {artwork.loading
+              ? "Loading saved artwork…"
+              : artwork.loadError ||
+                artwork.authError ||
+                (artwork.atCapacity
+                  ? `Showing ${artwork.canvas?.approved_count ?? 0} approved strokes.`
+                  : `Showing ${artwork.canvas?.approved_count ?? 0} approved strokes. More artwork is available; load it before drawing.`)}
+          </span>
           {!artwork.loading && artwork.loadError && (
             <button onClick={() => void artwork.load()}>Retry artwork</button>
           )}
@@ -199,12 +214,12 @@ export default function Studio({ notice = "" }: { notice?: string }) {
           )}
           {artwork.atCapacity && (
             <p>
-              This prototype has reached its vector viewing limit. Larger
-              canvases need the later tiled renderer.
+              This view has reached its artwork limit. Drawing is paused here.
             </p>
           )}
         </div>
       )}
+      <StrokeReport strokes={artwork.strokes} signedIn={!!artwork.user} />
       <section className="workspace">
         <div className="canvas-panel">
           <div className="canvas-top">
@@ -304,8 +319,8 @@ export default function Studio({ notice = "" }: { notice?: string }) {
           </div>
           <div className="canvas-bottom">
             <span data-testid="stroke-count">
-              {strokes.length} saved{" "}
-              {strokes.length === 1 ? "stroke" : "strokes"}
+              {artwork.canvas?.approved_count ?? 0} approved{" "}
+              {artwork.canvas?.approved_count === 1 ? "stroke" : "strokes"}
             </span>
             <span className="coordinates">
               X {Math.round(center.x)} / Y {Math.round(center.y)}
@@ -389,7 +404,7 @@ export default function Studio({ notice = "" }: { notice?: string }) {
           {readyToAdd && (
             <button
               className="primary"
-              disabled={!!artwork.user && !artwork.canDraw}
+              disabled={!artwork.canDraw}
               onClick={addStroke}
             >
               + Add Stroke
@@ -506,7 +521,7 @@ export default function Studio({ notice = "" }: { notice?: string }) {
           onSignedIn={async () => {
             const user = await artwork.refreshUser();
             if (user) {
-              setAuthNotice("");
+              clearAuthNotice();
               setAuthOpen(false);
               if (resumeAfterAuth && artwork.canDraw) send("ADD");
             }
