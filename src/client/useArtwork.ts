@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useRef, useState } from "react";
-import type { Candidate, PersistedStroke } from "@/domain/canvas";
+import type { Candidate } from "@/domain/canvas";
 import { api } from "./api";
 import { useAccount } from "./useAccount";
 import { useCanvasArtwork } from "./useCanvasArtwork";
@@ -10,7 +10,7 @@ export function useArtwork(slug: string) {
   const [pending, setPending] = useState<Candidate | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const { store } = artwork;
+  const { load } = artwork;
   const save = useCallback(
     async (candidate: Candidate) => {
       if (savingRef.current)
@@ -18,17 +18,17 @@ export function useArtwork(slug: string) {
       savingRef.current = true;
       setSaving(true);
       setPending(candidate);
-      const submissionEpoch = store.epoch;
+
       try {
-        const data = await api<{ stroke: PersistedStroke }>(
-          `/api/canvases/${encodeURIComponent(slug)}/strokes`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(candidate),
-          },
-        );
-        await store.confirm(data.stroke, submissionEpoch);
+        const data = await api<{
+          stroke: import("@/domain/moderation").SubmissionReceipt;
+        }>(`/api/canvases/${encodeURIComponent(slug)}/strokes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(candidate),
+        });
+        // A receipt is never public geometry; reconcile only approved artwork.
+        void load(1);
         setPending(null);
         return data.stroke;
       } finally {
@@ -36,7 +36,7 @@ export function useArtwork(slug: string) {
         setSaving(false);
       }
     },
-    [store, slug],
+    [load, slug],
   );
   return {
     ...artwork,

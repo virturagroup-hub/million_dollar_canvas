@@ -15,7 +15,11 @@ export type CanvasRecord = {
   opens_at: string | null;
   closes_at: string | null;
 };
-export type PublicProfile = { id: string; displayName: string };
+export type PublicProfile = {
+  id: string;
+  displayName: string;
+  role?: "user" | "moderator" | "admin";
+};
 export type PersistedStroke = Stroke & {
   canvasId: string;
   order: number;

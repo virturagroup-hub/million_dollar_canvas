@@ -10,7 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:integration": "vitest run src/server/database.integration.test.ts src/server/catalog.integration.test.ts src/server/routes.test.ts",
+    "test:integration": "vitest run src/server/database.integration.test.ts src/server/catalog.integration.test.ts src/server/moderation.integration.test.ts src/server/moderation.routes.test.ts src/server/routes.test.ts",
     "test:e2e:hosted": "playwright test --config playwright.hosted.config.ts"
   },
   "repository": {

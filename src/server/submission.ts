@@ -5,11 +5,7 @@ import {
   validateStroke,
   type Point,
 } from "../drawing/model";
-import type {
-  Candidate,
-  CanvasRecord,
-  PersistedStroke,
-} from "../domain/canvas";
+import type { Candidate, CanvasRecord } from "../domain/canvas";
 export class RequestError extends Error {
   constructor(
     public status: number,
@@ -76,7 +72,7 @@ export type SubmissionStore = {
     canvas: CanvasRecord,
     candidate: Candidate,
     box: ReturnType<typeof bounds>,
-  ) => Promise<PersistedStroke>;
+  ) => Promise<import("../domain/moderation").SubmissionReceipt>;
 };
 export async function submitStroke(
   store: SubmissionStore,

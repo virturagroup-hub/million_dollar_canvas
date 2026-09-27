@@ -998,3 +998,71 @@ fieldset:disabled {
     gap: 20px;
   }
 }
+.moderation-page {
+  max-width: 1400px;
+  margin: auto;
+  padding: 30px;
+}
+.moderation-page h1 {
+  font-family: Georgia, serif;
+  font-size: 48px;
+}
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 2fr;
+  gap: 32px;
+  margin-top: 24px;
+}
+.queue-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 18px;
+  margin-bottom: 12px;
+}
+.moderation-page label,
+.stroke-inspector label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+.moderation-page select,
+.moderation-page textarea,
+.stroke-inspector select,
+.stroke-inspector textarea {
+  padding: 12px;
+  border: 1px solid #d4d8cf;
+  background: white;
+  color: #173d32;
+  max-width: 100%;
+}
+.moderation-patch {
+  width: 100%;
+  max-height: 520px;
+  background: white;
+  border: 1px solid #d4d8cf;
+}
+.review-actions {
+  display: flex;
+  gap: 16px;
+  margin: 20px 0;
+}
+.stroke-inspector {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #d4d8cf;
+}
+.stroke-inspector form {
+  max-width: 500px;
+}
+@media (max-width: 700px) {
+  .review-layout {
+    grid-template-columns: 1fr;
+  }
+  .moderation-page {
+    padding: 16px;
+  }
+}

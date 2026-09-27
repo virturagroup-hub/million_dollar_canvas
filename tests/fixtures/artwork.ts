@@ -17,6 +17,8 @@ export const testCanvas: CanvasRecord = {
   opens_at: null,
   closes_at: null,
 };
+// Existing renderer tests simulate an immediate separate moderator approval.
+// The moderation suite overrides submission to verify the pending interval.
 // Only browser-test network interception. No mock/test backdoor ships in the app.
 export async function mockArtwork(
   context: BrowserContext,
@@ -56,7 +58,13 @@ export async function mockArtwork(
       });
   });
   await context.route("**/api/canvases/open-studio?*", async (route) =>
-    route.fulfill({ json: { canvas: testCanvas, strokes, next: null } }),
+    route.fulfill({
+      json: {
+        canvas: { ...testCanvas, approved_count: strokes.length },
+        strokes,
+        next: null,
+      },
+    }),
   );
   await context.route("**/api/canvases/open-studio/strokes", async (route) => {
     if (options.rejectSave) {
@@ -87,6 +95,9 @@ export async function mockArtwork(
       };
       strokes = [...strokes, stroke];
     }
-    await route.fulfill({ status: 201, json: { stroke } });
+    await route.fulfill({
+      status: 201,
+      json: { stroke: { id: stroke.id, status: "approved" } },
+    });
   });
 }

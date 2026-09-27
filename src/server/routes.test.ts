@@ -6,6 +6,7 @@ const auth = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   signOut: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
 }));
 const db = vi.hoisted(() => ({
   canvas: vi.fn(),
@@ -14,7 +15,7 @@ const db = vi.hoisted(() => ({
   catalog: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  serverClient: async () => ({ auth, from: auth.from }),
+  serverClient: async () => ({ auth, from: auth.from, rpc: auth.rpc }),
 }));
 vi.mock("@/server/repository", () => ({ repository: async () => db }));
 vi.mock("@/lib/supabase/config", () => ({
@@ -47,6 +48,7 @@ const request = (body: unknown) =>
   });
 beforeEach(() => {
   vi.resetAllMocks();
+  auth.rpc.mockResolvedValue({ data: "user", error: null });
   auth.getUser.mockResolvedValue({
     data: { user: { id: "verified-id", email: "private@example.test" } },
     error: null,
@@ -115,7 +117,7 @@ it("public session response projects only public fields", async () => {
   auth.from.mockReturnValue({ select: () => ({ eq: () => ({ single }) }) });
   const response = await authGet();
   expect(await response.json()).toEqual({
-    user: { id: "verified-id", displayName: "Artist" },
+    user: { id: "verified-id", displayName: "Artist", role: "user" },
     configured: true,
   });
 });

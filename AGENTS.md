@@ -1982,7 +1982,7 @@ The artwork provenance system should use conventional cryptographic hashes unles
 
 Do not attempt to build the entire long-term platform immediately.
 
-Initial milestones:
+Milestones 1–3 are complete. The official next implementation milestone after the product shell is Moderation Foundation. The remaining order is fixed below; do not begin later milestones without explicit instruction.
 
 ## Milestone 1 — Local Drawing Prototype
 
@@ -2041,78 +2041,41 @@ Two or more users can collaborate.
 
 ---
 
-## Milestone 4 — Credits and Payments
+## Intermediate Product Shell — Complete
 
-Implement:
+Homepage, multi-canvas routing, live previews, and archive foundation. Multiple manually configured canvases do not imply automatic weekly scheduling.
 
-- credit ledger
-- Stripe test mode
-- checkout
-- verified webhooks
-- idempotency
-- atomic credit consumption
-- stroke authorization
+## Milestone 4 — Moderation Foundation
 
-Goal:
+Pending submissions, protected human review, contextual patches, reports, approve/reject/suppress/unsuppress transitions, and append-only audit history. Automated scanning remains a future advisory extension; no vendor integration or courtesy credits in this foundation.
 
-Real payment architecture works safely in test mode.
+## Milestone 5 — Canvas Lifecycle and Admin Management
 
----
+Server-authoritative canvas management, closure, archive workflows, and privileged administration. Scheduling requires explicit implementation and verification.
 
-## Milestone 5 — Moderation
+## Milestone 6 — Profiles, Attribution, and Contributor Discovery
 
-Implement:
+Public profiles, privacy-preserving attribution, contributor discovery and statistics.
 
-- pending
-- approved
-- rejected
-- suppressed
-- automated patch pipeline
-- report workflow
-- moderator dashboard
-- moderation history
-- courtesy replacement credits
+## Milestone 7 — Scalable Rendering and Large-Canvas Infrastructure
 
-Goal:
+Raster tiles, object storage, tile pyramids, spatial lookup, vector archives and replay. Browser memory must depend on the viewport rather than total history.
 
-UGC can be safely controlled.
+## Milestone 8 — Flagship Million-Stroke Mechanics and Provenance
 
----
+Official sequence assignment, final-slot concurrency, sealing, integrity checkpoints and reproducible provenance. Never exceed the exact approved active stroke limit.
 
-## Milestone 6 — Scalable Rendering
+## Milestone 9 — Production Hardening and Launch Readiness
 
-Implement:
+Security, abuse controls, accessibility, observability, backups, restore drills, operational readiness and deployment verification. Launch remains gated by applicable requirements.
 
-- raster tile generation
-- object storage
-- tile pyramid
-- spatial lookup
-- vector archive
-- contributor highlighting
-- replay
+## Milestone 10 — Payments, Credits, and Monetization
 
-Goal:
+Append-only credit ledger, Stripe test mode and hosted checkout, verified idempotent webhooks, atomic credit spending, one-use paid stroke authorizations, concurrency tests and auditable courtesy credits.
 
-Canvas size no longer depends on browser rendering every vector.
+Payment and credit functionality is intentionally deferred until the core art, moderation, canvas lifecycle, scaling, and flagship mechanics have been proven.
 
----
-
-## Milestone 7 — Public Product
-
-Implement:
-
-- recurring themed canvas
-- archive/gallery
-- Million-Stroke Masterpiece
-- pricing packages
-- profile pages
-- contributor statistics
-- production deployment
-- monitoring/backups
-
-Goal:
-
-Public launch.
+Payments and credits are intentionally deferred until the final monetization milestone. All payment integrity, authorization, ledger, webhook, concurrency and security invariants elsewhere in this constitution remain binding for that milestone; deferral does not waive them.
 
 ---
 

@@ -15,6 +15,7 @@ import {
   type Phase,
 } from "@/drawing/model";
 import { useStudio } from "@/drawing/useStudio";
+import StrokeReport from "./StrokeReport";
 import StrokeOptions from "./StrokeOptions";
 const guidance: Record<Phase, string> = {
   idle: "A blank canvas. A place to begin.",
@@ -24,7 +25,7 @@ const guidance: Record<Phase, string> = {
   armed: "DRAW",
   drawing: "Make your mark.",
   submitting: "Saving your stroke…",
-  completed: "One stroke. Part of something bigger.",
+  completed: "Stroke submitted for review.",
   cancelled: "Take your time. The canvas is here.",
   failed: "Let’s try that again.",
 };
@@ -126,6 +127,9 @@ export default function Studio({
           </span>
         </Link>
         <Navigation />
+        {artwork.user?.role && artwork.user.role !== "user" && (
+          <Link href="/moderation">Moderation</Link>
+        )}
         <div className="account">
           <span className="badge">
             {artwork.canvas?.canvas_type ?? "CANVAS"}
@@ -197,8 +201,8 @@ export default function Studio({
               : artwork.loadError ||
                 artwork.authError ||
                 (artwork.atCapacity
-                  ? `Showing ${strokes.length} saved strokes.`
-                  : `Showing ${strokes.length} saved strokes. More artwork is available; load it before drawing.`)}
+                  ? `Showing ${artwork.canvas?.approved_count ?? 0} approved strokes.`
+                  : `Showing ${artwork.canvas?.approved_count ?? 0} approved strokes. More artwork is available; load it before drawing.`)}
           </span>
           {!artwork.loading && artwork.loadError && (
             <button onClick={() => void artwork.load()}>Retry artwork</button>
@@ -215,6 +219,7 @@ export default function Studio({
           )}
         </div>
       )}
+      <StrokeReport strokes={artwork.strokes} signedIn={!!artwork.user} />
       <section className="workspace">
         <div className="canvas-panel">
           <div className="canvas-top">
@@ -314,8 +319,8 @@ export default function Studio({
           </div>
           <div className="canvas-bottom">
             <span data-testid="stroke-count">
-              {strokes.length} saved{" "}
-              {strokes.length === 1 ? "stroke" : "strokes"}
+              {artwork.canvas?.approved_count ?? 0} approved{" "}
+              {artwork.canvas?.approved_count === 1 ? "stroke" : "strokes"}
             </span>
             <span className="coordinates">
               X {Math.round(center.x)} / Y {Math.round(center.y)}

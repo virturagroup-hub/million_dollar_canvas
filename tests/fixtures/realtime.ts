@@ -226,7 +226,10 @@ export function realtimeFixture() {
         notify(canvas.id);
         if (holdSaves)
           await new Promise<void>((resolve) => release.push(resolve));
-        await route.fulfill({ status: 201, json: { stroke } });
+        await route.fulfill({
+          status: 201,
+          json: { stroke: { id: stroke.id, status: "approved" } },
+        });
       });
     },
   };

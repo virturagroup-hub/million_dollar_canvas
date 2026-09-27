@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useAccount } from "@/client/useAccount";
 import { api } from "@/client/api";
@@ -28,6 +29,9 @@ export default function GalleryAccount({
     <div className="account">
       {account.user ? (
         <>
+          {account.user.role && account.user.role !== "user" && (
+            <Link href="/moderation">Moderation</Link>
+          )}
           <span>Signed in as {account.user.displayName}</span>
           <button onClick={() => void signOut()}>Sign out</button>
         </>

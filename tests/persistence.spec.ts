@@ -47,7 +47,9 @@ test("loupe shows real neighboring pixels, selects exact color, cancels and clea
   await mockArtwork(context);
   await page.goto("/canvas/open-studio");
   await dot(page);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await page.getByRole("button", { name: "+ Add Stroke", exact: true }).click();
   await page.getByLabel("Stroke color", { exact: true }).fill("#123456");
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
@@ -145,16 +147,22 @@ test("unconfirmed saves never appear official; retry uses the same candidate", a
   await expect(page.locator(".error[role=alert]")).toHaveText(
     "Save failed for test.",
   );
-  await expect(page.getByTestId("stroke-count")).toHaveText("0 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "0 approved strokes",
+  );
   await expect(
     page.getByRole("button", { name: "+ Add Stroke", exact: true }),
   ).toBeDisabled();
   options.rejectSave = false;
   await page.getByRole("button", { name: "Retry same stroke" }).click();
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await expect(surface(page)).toHaveAttribute("data-phase", "completed");
   await page.reload();
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await page.getByText("Recent contributors").click();
   await expect(page.locator(".attribution")).toContainText("Test Artist");
 });

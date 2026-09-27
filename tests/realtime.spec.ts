@@ -27,16 +27,24 @@ test("subscription repairs the initial load gap and a delayed save cannot resurr
   fixture.onNextJoin(() => fixture.add()); // Commit after HTTP baseline, before subscription acknowledgement.
   await page.goto("/canvas/open-studio");
   await expect(page.getByTestId("live-status")).toHaveText("Live");
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   const box = await arm(page);
   fixture.holdSaves(true);
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page.getByTestId("stroke-count")).toHaveText("2 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "2 approved strokes",
+  );
   fixture.suppress(fixture.strokes[1].id);
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   fixture.holdSaves(false);
   await expect(surface(page)).toHaveAttribute("data-phase", "completed");
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
 });
 test("two independent contexts and a second tab receive canonical geometry; originator never duplicates", async ({
   browser,
@@ -65,16 +73,18 @@ test("two independent contexts and a second tab receive canonical geometry; orig
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(surface(page)).toHaveAttribute("data-phase", "submitting");
   for (const p of [page, viewer, tab])
-    await expect(p.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+    await expect(p.getByTestId("stroke-count")).toHaveText("1 approved stroke");
   fixture.holdSaves(false);
   await expect(surface(page)).toHaveAttribute("data-phase", "completed");
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await viewer.getByText("Recent contributors").click();
   await expect(viewer.locator(".attribution")).toContainText("Test Artist");
   await expect.poll(() => pixels(viewer)).toBe(await pixels(page));
   await Promise.all([page.reload(), viewer.reload()]);
   for (const p of [page, viewer])
-    await expect(p.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+    await expect(p.getByTestId("stroke-count")).toHaveText("1 approved stroke");
   await expect.poll(() => pixels(viewer)).toBe(await pixels(page));
   await other.close();
   await expect.poll(() => fixture.connections).toBe(1);
@@ -91,9 +101,12 @@ test("reconnect, missed events, scoping, burst batching and suppression reconcil
   fixture.disconnect(context);
   await expect(page.getByTestId("live-status")).toHaveText("Reconnecting");
   fixture.add(); // No notification: the next successful join must repair the gap.
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke", {
-    timeout: 12000,
-  });
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+    {
+      timeout: 12000,
+    },
+  );
   await expect(page.getByTestId("live-status")).toHaveText("Live");
   const before = fixture.reads;
   fixture.notify("other-canvas");
@@ -105,18 +118,18 @@ test("reconnect, missed events, scoping, burst batching and suppression reconcil
     fixture.notify();
   }
   await expect(page.getByTestId("stroke-count")).toHaveText(
-    "121 saved strokes",
+    "121 approved strokes",
   );
   expect(fixture.reads - before).toBeLessThanOrEqual(4);
   fixture.suppress(fixture.strokes[0].id);
   await expect(page.getByTestId("stroke-count")).toHaveText(
-    "120 saved strokes",
+    "120 approved strokes",
   );
   fixture.failReads(true);
   fixture.notify();
   await expect(page.getByTestId("live-status")).toHaveText("Reconnecting");
   await expect(page.getByTestId("stroke-count")).toHaveText(
-    "120 saved strokes",
+    "120 approved strokes",
   );
   fixture.failReads(false);
   await expect(page.getByTestId("live-status")).toHaveText("Live", {
@@ -125,7 +138,7 @@ test("reconnect, missed events, scoping, burst batching and suppression reconcil
   fixture.add(); // Even if every notification is lost, periodic reads converge.
   await page.clock.fastForward(31000);
   await expect(page.getByTestId("stroke-count")).toHaveText(
-    "121 saved strokes",
+    "121 approved strokes",
   );
 });
 test("remote updates retain the locked viewport and in-progress local gesture", async ({
@@ -142,12 +155,16 @@ test("remote updates retain the locked viewport and in-progress local gesture", 
   await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2);
   fixture.add();
   fixture.notify();
-  await expect(page.getByTestId("stroke-count")).toHaveText("1 saved stroke");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "1 approved stroke",
+  );
   await expect(surface(page)).toHaveAttribute("data-phase", "drawing");
   await page.mouse.wheel(0, -400);
   await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2);
   await page.mouse.up();
-  await expect(page.getByTestId("stroke-count")).toHaveText("2 saved strokes");
+  await expect(page.getByTestId("stroke-count")).toHaveText(
+    "2 approved strokes",
+  );
   const local = fixture.strokes[1];
   expect(local.points.length).toBeGreaterThanOrEqual(3);
   expect(local.points[0].x).toBeCloseTo(2000, 1);

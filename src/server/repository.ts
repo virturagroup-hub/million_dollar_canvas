@@ -101,7 +101,7 @@ export async function repository() {
           : null,
     };
   }
-  async function save(userId: string, c: CanvasRecord, candidate: Candidate) {
+  async function save(_userId: string, c: CanvasRecord, candidate: Candidate) {
     const { data: id, error } = await db.rpc("submit_stroke", {
       p_canvas_id: c.id,
       p_request_id: candidate.requestId,
@@ -130,20 +130,17 @@ export async function repository() {
         "The stroke was not confirmed. Retry the same stroke or reload to check the artwork.",
       );
     }
-    const { data, error: readError } = await db
-      .from("strokes")
-      .select(fields)
-      .eq("id", id)
-      .eq("user_id", userId)
-      .eq("stroke_visibility.status", "approved")
-      .single();
+    const { data, error: readError } = await db.rpc("submission_receipt", {
+      p_id: id,
+    });
     if (readError || !data)
       throw new RequestError(
         503,
-        "Could not confirm the saved stroke. Retry the same stroke to check it safely.",
+        "Could not confirm submission. Retry the same stroke safely.",
       );
-    return fromRow(data as unknown as StrokeRow);
+    return data as import("@/domain/moderation").SubmissionReceipt;
   }
+
   async function page(canvasId: string, after: number, resetVersion = 0) {
     // Read the epoch BEFORE the page. A concurrent visibility change is then
     // detected by the next reconciliation rather than silently acknowledged.
